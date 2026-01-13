@@ -3,152 +3,522 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 10.2</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#000000">
+    <title>GymPro Elite Ultimate</title>
+    
+    <style>
+        /* --- iOS DESIGN SYSTEM VARIABLES --- */
+        :root {
+            --bg-body: #000000;
+            --bg-card: #1c1c1e;
+            --bg-secondary: #2c2c2e;
+            --bg-tertiary: #3a3a3c;
+            --ios-blue: #0A84FF;
+            --ios-green: #30D158;
+            --ios-red: #FF453A;
+            --ios-orange: #FF9F0A;
+            --ios-gray: #8E8E93;
+            --ios-separator: rgba(84, 84, 88, 0.65);
+            --text-primary: #FFFFFF;
+            --text-secondary: #EBEBF599; /* 60% opacity */
+            
+            --glass-material: rgba(30, 30, 30, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            
+            --radius-l: 22px;
+            --radius-m: 16px;
+            --radius-s: 10px;
+            
+            --easing: cubic-bezier(0.25, 1, 0.5, 1); /* iOS Spring feel */
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* --- GLOBAL RESET & TYPOGRAPHY --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; user-select: none; }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- APP STRUCTURE --- */
+        .app-layout {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            padding-top: calc(var(--safe-top) + 44px); /* Status bar + Nav height */
+            padding-bottom: var(--safe-bottom);
+        }
+
+        /* --- NAVIGATION BAR --- */
+        .nav-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: calc(var(--safe-top) + 44px);
+            padding-top: var(--safe-top);
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 0.5px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-left: 16px;
+            padding-right: 16px;
+            z-index: 1000;
+        }
+
+        .nav-title {
+            font-weight: 600;
+            font-size: 17px;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .nav-title.visible { opacity: 1; }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--ios-blue);
+            font-size: 17px;
+            font-weight: 400;
+            cursor: pointer;
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .nav-btn.hidden { visibility: hidden; pointer-events: none; }
+
+        /* --- SCREENS & TRANSITIONS --- */
+        .screen {
+            position: absolute;
+            inset: 0;
+            overflow-y: auto;
+            padding: 20px 16px 100px 16px;
+            background: var(--bg-body);
+            display: none;
+            opacity: 0;
+            transform: translateX(30px);
+            transition: transform 0.4s var(--easing), opacity 0.4s ease;
+        }
+
+        .screen.active {
+            display: block;
+            opacity: 1;
+            transform: translateX(0);
+            z-index: 10;
+        }
+
+        /* --- COMPONENTS: HEADERS --- */
+        .large-title {
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: 0.37px;
+            margin: 10px 0 20px 0;
+            color: var(--text-primary);
+        }
+        
+        .section-header {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            margin-top: 24px;
+            padding-right: 16px; /* RTL */
+        }
+
+        /* --- COMPONENTS: CARDS & LISTS --- */
+        .ios-list {
+            background: var(--bg-card);
+            border-radius: var(--radius-l);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .list-item {
+            background: var(--bg-card);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            border-bottom: 0.5px solid var(--ios-separator);
+            transition: background 0.2s;
+        }
+        .list-item:last-child { border-bottom: none; }
+        .list-item:active { background: var(--bg-secondary); }
+
+        .item-content { display: flex; flex-direction: column; gap: 4px; }
+        .item-title { font-size: 17px; font-weight: 500; }
+        .item-subtitle { font-size: 15px; color: var(--text-secondary); }
+        .item-icon { color: var(--text-secondary); font-size: 14px; }
+
+        /* --- COMPONENTS: BUTTONS --- */
+        .btn-primary {
+            background: var(--ios-blue);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 600;
+            margin-top: 20px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--ios-blue);
+            border: none;
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 600;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+
+        /* --- COMPONENTS: FORMS & PICKERS --- */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .picker-container {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .picker-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        select.ios-select {
+            appearance: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 22px;
+            font-weight: 600;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* --- TIMER COMPONENT --- */
+        .timer-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 30px 0;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .timer-wrapper.visible { visibility: visible; opacity: 1; }
+
+        .progress-ring__circle {
+            transition: stroke-dashoffset 1s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .timer-text-display {
+            position: absolute;
+            font-variant-numeric: tabular-nums;
+            font-size: 32px;
+            font-weight: 200;
+            font-family: -apple-system;
+        }
+
+        /* --- UTILS --- */
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            background: var(--ios-orange);
+            color: black;
+            margin-right: 8px;
+        }
+        
+        .summary-text {
+            font-family: 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+        }
+    </style>
 </head>
 <body>
-    <div class="glass-overlay"></div>
-    <div class="app-container">
-        <header class="app-header">
-            <button id="global-back" class="back-btn" onclick="handleBackClick()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            </button>
-            <div class="brand-logo">GYMPRO <span>ELITE</span></div>
-            <div class="version-tag">V 10.2</div>
-        </header>
 
-        <main class="content-area">
-            <div id="ui-week" class="screen active">
-                <div class="hero-section">
-                    <h1>ברוך הבא,<span>מוכן לאימון?</span></h1>
-                </div>
-                <button onclick="initAudio()" id="audio-init-btn" class="action-card primary-gradient">
-                    <div class="card-icon">⚡</div>
-                    <div class="card-text">הפעל מצב אימון אקטיבי</div>
-                </button>
-                <div class="section-label">בחר תוכנית שבועית</div>
-                <div class="grid-menu">
-                    <button class="menu-card" onclick="selectWeek(1)"><span>שבוע 1</span><div class="arrow">➔</div></button>
-                    <button class="menu-card" onclick="selectWeek(2)"><span>שבוע 2</span><div class="arrow">➔</div></button>
-                    <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="arrow">➔</div></button>
-                </div>
-            </div>
+    <!-- NAVIGATION -->
+    <nav class="nav-bar">
+        <button id="nav-back" class="nav-btn hidden" onclick="handleBackClick()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            חזור
+        </button>
+        <div class="nav-title" id="nav-dynamic-title">GymPro Elite</div>
+        <div style="width: 50px;"></div> <!-- Spacer for balance -->
+    </nav>
 
-            <div id="ui-workout-type" class="screen">
-                <div class="hero-section"><h2>בחר מסלול אימון</h2></div>
-                <div class="vertical-stack">
-                    <button class="menu-card tall" onclick="selectWorkout('A')">
-                        <div class="card-info"><h3>אימון A</h3><p>כתפיים וטרפזים</p></div>
-                    </button>
-                    <button class="menu-card tall" onclick="selectWorkout('B')">
-                        <div class="card-info"><h3>אימון B</h3><p>רגליים וגב</p></div>
-                    </button>
-                    <button class="menu-card tall" onclick="selectWorkout('C')">
-                        <div class="card-info"><h3>אימון C</h3><p>חזה ופלג גוף עליון</p></div>
-                    </button>
-                    <button class="menu-card tall freestyle-card" onclick="startFreestyle()">
-                        <div class="card-info"><h3>Freestyle</h3><p>אימון מותאם אישית</p></div>
-                    </button>
-                </div>
-            </div>
-
-            <div id="ui-muscle-select" class="screen">
-                <h2 class="section-title">בחר קבוצת שרירים</h2>
-                <div class="grid-menu">
-                    <button class="menu-card" onclick="showExerciseList('כתפיים')">כתפיים</button>
-                    <button class="menu-card" onclick="showExerciseList('רגליים')">רגליים</button>
-                    <button class="menu-card" onclick="showExerciseList('חזה')">חזה</button>
-                    <button class="menu-card" onclick="showExerciseList('גב')">גב</button>
-                </div>
-                <button class="finish-main-btn" onclick="navigate('ui-ask-arms')">סיום חלק עיקרי ומעבר לידיים</button>
-            </div>
-
-            <div id="ui-variation" class="screen">
-                <h2 id="variation-title" class="section-title">בחר תרגיל</h2>
-                <div id="variation-options" class="vertical-stack"></div>
-                <button class="btn-text" onclick="navigate('ui-muscle-select')">חזור לבחירת שריר</button>
-            </div>
-
-            <div id="ui-1rm" class="screen">
-                <div class="hero-section"><h2 id="rm-title">1RM</h2></div>
-                <div class="glass-card">
-                    <label>משקל מקסימלי (RM)</label>
-                    <select id="rm-picker" class="ios-picker"></select>
-                </div>
-                <button class="btn-main primary-gradient" onclick="save1RM()">חשב והמשך</button>
-            </div>
-
-            <div id="ui-confirm" class="screen flex-center">
-                <div class="confirm-box">
-                    <p>התרגיל הבא ברשימה:</p>
-                    <h2 id="confirm-ex-name"></h2>
-                    <div class="confirm-actions">
-                        <button class="btn-main primary-gradient" onclick="confirmExercise(true)">כן, התחל</button>
-                        <button class="btn-text" onclick="confirmExercise(false)">דלג על התרגיל</button>
+    <!-- CONTENT -->
+    <div class="app-layout">
+        
+        <!-- Screen: Week Selection -->
+        <div id="ui-week" class="screen active">
+            <h1 class="large-title">ברוך הבא</h1>
+            
+            <div class="ios-list">
+                <div class="list-item" onclick="initAudio()">
+                    <div class="item-content">
+                        <span class="item-title" style="color: var(--ios-green)">הפעל מערכת סאונד</span>
+                        <span class="item-subtitle">לחץ כאן לפני תחילת האימון</span>
                     </div>
                 </div>
             </div>
 
-            <div id="ui-main" class="screen">
-                <div class="exercise-header">
-                    <div class="badge-row">
-                        <span id="set-counter" class="ios-badge">SET 1/3</span>
-                        <div id="unilateral-note" class="uni-badge">UNILATERAL</div>
+            <div class="section-header">בחר תוכנית שבועית</div>
+            <div class="ios-list">
+                <div class="list-item" onclick="selectWeek(1)">
+                    <div class="item-content"><span class="item-title">שבוע 1</span></div>
+                    <span class="item-icon">❯</span>
+                </div>
+                <div class="list-item" onclick="selectWeek(2)">
+                    <div class="item-content"><span class="item-title">שבוע 2</span></div>
+                    <span class="item-icon">❯</span>
+                </div>
+                <div class="list-item" onclick="selectWeek(3)">
+                    <div class="item-content"><span class="item-title">שבוע 3</span></div>
+                    <span class="item-icon">❯</span>
+                </div>
+            </div>
+            <p style="text-align:center; color: var(--text-secondary); font-size: 12px; margin-top: 20px;">GymPro Elite v10.5 Ultimate</p>
+        </div>
+
+        <!-- Screen: Workout Type -->
+        <div id="ui-workout-type" class="screen">
+            <h1 class="large-title">סוג אימון</h1>
+            <div class="ios-list">
+                <div class="list-item" onclick="selectWorkout('A')">
+                    <div class="item-content">
+                        <span class="item-title">אימון A</span>
+                        <span class="item-subtitle">Push / כתפיים</span>
                     </div>
-                    <h2 id="ex-display-name"></h2>
-                    <div id="last-set-info" class="history-pill"></div>
+                    <span class="item-icon">❯</span>
                 </div>
-                <div class="input-grid">
-                    <div class="glass-card compact"><label>משקל</label><select id="weight-picker" class="ios-picker"></select></div>
-                    <div class="glass-card compact"><label>חזרות</label><select id="reps-picker" class="ios-picker"></select></div>
-                    <div class="glass-card compact"><label>RIR</label><select id="rir-picker" class="ios-picker"></select></div>
-                </div>
-                <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">סיום סט</button>
-                <div id="timer-area" class="timer-section">
-                    <div class="timer-wrap">
-                        <svg class="timer-svg" viewBox="0 0 100 100">
-                            <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
-                            <circle id="timer-progress" class="timer-bar" cx="50" cy="50" r="45"></circle>
-                        </svg>
-                        <div id="rest-timer" class="timer-text">00:00</div>
+                <div class="list-item" onclick="selectWorkout('B')">
+                    <div class="item-content">
+                        <span class="item-title">אימון B</span>
+                        <span class="item-subtitle">Legs / גב</span>
                     </div>
-                    <button class="btn-finish-ex" onclick="handleExtra(false)">סיים תרגיל מוקדם</button>
+                    <span class="item-icon">❯</span>
+                </div>
+                <div class="list-item" onclick="selectWorkout('C')">
+                    <div class="item-content">
+                        <span class="item-title">אימון C</span>
+                        <span class="item-subtitle">Chest / עליון</span>
+                    </div>
+                    <span class="item-icon">❯</span>
                 </div>
             </div>
 
-            <div id="ui-extra" class="screen flex-center">
-                <div class="glass-card bonus-card">
-                    <h3>תרגיל הושלם!</h3>
-                    <p>האם תרצה להוסיף סט בונוס?</p>
-                    <button class="btn-main success-gradient" onclick="handleExtra(true)">+ סט בונוס</button>
-                    <button class="btn-main secondary" onclick="handleExtra(false)">המשך לתרגיל הבא</button>
+            <div class="section-header">מתקדם</div>
+            <div class="ios-list">
+                <div class="list-item" onclick="startFreestyle()">
+                    <div class="item-content">
+                        <span class="item-title" style="color: var(--ios-orange)">Freestyle</span>
+                        <span class="item-subtitle">בחירה חופשית</span>
+                    </div>
+                    <span class="item-icon">❯</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen: Muscle Select (Freestyle) -->
+        <div id="ui-muscle-select" class="screen">
+            <h1 class="large-title">בחר שריר</h1>
+            <div class="ios-list">
+                <div class="list-item" onclick="showExerciseList('כתפיים')"><span class="item-title">כתפיים</span><span class="item-icon">❯</span></div>
+                <div class="list-item" onclick="showExerciseList('רגליים')"><span class="item-title">רגליים</span><span class="item-icon">❯</span></div>
+                <div class="list-item" onclick="showExerciseList('חזה')"><span class="item-title">חזה</span><span class="item-icon">❯</span></div>
+                <div class="list-item" onclick="showExerciseList('גב')"><span class="item-title">גב</span><span class="item-icon">❯</span></div>
+            </div>
+            <button class="btn-secondary" onclick="navigate('ui-ask-arms')">דלג לידיים</button>
+        </div>
+
+        <!-- Screen: Variations List -->
+        <div id="ui-variation" class="screen">
+            <h1 class="large-title" id="variation-title">תרגילים</h1>
+            <div id="variation-options" class="ios-list"></div>
+        </div>
+
+        <!-- Screen: 1RM Calculator -->
+        <div id="ui-1rm" class="screen">
+            <h1 class="large-title">קביעת משקל</h1>
+            <p class="item-subtitle" id="rm-title" style="margin-bottom: 20px;"></p>
+            
+            <div class="ios-list">
+                <div class="list-item">
+                     <div class="item-content" style="width:100%">
+                         <span class="item-title">משקל מקסימלי (1RM)</span>
+                         <select id="rm-picker" class="ios-select" style="text-align:left; margin-top:10px; color:var(--ios-blue)"></select>
+                     </div>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="save1RM()">חשב וצור אימון</button>
+        </div>
+
+        <!-- Screen: Confirm Exercise -->
+        <div id="ui-confirm" class="screen">
+            <div style="height: 20vh;"></div>
+            <div style="text-align: center;">
+                <p style="color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">התרגיל הבא</p>
+                <h1 class="large-title" id="confirm-ex-name" style="margin-bottom: 40px;"></h1>
+                <button class="btn-primary" onclick="confirmExercise(true)">התחל תרגיל</button>
+                <button class="btn-secondary" onclick="confirmExercise(false)">דלג תרגיל</button>
+            </div>
+        </div>
+
+        <!-- Screen: Main Workout Logger -->
+        <div id="ui-main" class="screen">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div class="section-header" id="set-counter">SET 1</div>
+                <div id="unilateral-note" class="badge" style="display:none">UNILATERAL</div>
+            </div>
+            
+            <h1 class="large-title" id="ex-display-name" style="font-size: 28px; margin-top: 5px;"></h1>
+            <p id="last-set-info" style="color: var(--ios-green); font-size: 14px; margin-bottom: 20px;"></p>
+
+            <div class="form-grid">
+                <div class="picker-container">
+                    <span class="picker-label">Weight (kg)</span>
+                    <select id="weight-picker" class="ios-select"></select>
+                </div>
+                <div class="picker-container">
+                    <span class="picker-label">Reps</span>
+                    <select id="reps-picker" class="ios-select"></select>
+                </div>
+                <div class="picker-container">
+                    <span class="picker-label">RIR</span>
+                    <select id="rir-picker" class="ios-select"></select>
                 </div>
             </div>
 
-            <div id="ui-ask-arms" class="screen flex-center">
-                <div class="confirm-box">
-                    <h2>האם להוסיף ידיים?</h2>
-                    <button class="btn-main primary-gradient" onclick="startArmWorkout()">כן, בטח</button>
-                    <button class="btn-text" onclick="finish()">לא, סיים אימון</button>
+            <button id="btn-submit-set" class="btn-primary" onclick="nextStep()">סיום סט</button>
+
+            <!-- Circular Timer -->
+            <div id="timer-area" class="timer-wrapper">
+                <div style="position: relative; width: 160px; height: 160px;">
+                    <svg width="160" height="160">
+                        <circle stroke="#2c2c2e" stroke-width="8" fill="transparent" r="70" cx="80" cy="80"/>
+                        <circle id="timer-progress" class="progress-ring__circle" stroke="#0A84FF" stroke-width="8" stroke-linecap="round" fill="transparent" r="70" cx="80" cy="80" stroke-dasharray="439.8" stroke-dashoffset="0"/>
+                    </svg>
+                    <div style="position: absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+                        <span id="rest-timer" class="timer-text-display">00:00</span>
+                    </div>
+                </div>
+                <button class="btn-secondary" style="width: auto; padding: 10px 20px; font-size: 14px; margin-top: 10px;" onclick="handleExtra(false)">דלג מנוחה</button>
+            </div>
+        </div>
+
+        <!-- Screen: Extra/Bonus -->
+        <div id="ui-extra" class="screen">
+            <div style="height: 25vh;"></div>
+            <div style="text-align: center;">
+                <div style="font-size: 60px; margin-bottom: 20px;">💪</div>
+                <h2 style="font-size: 24px; margin-bottom: 10px;">התרגיל הושלם</h2>
+                <p style="color: var(--text-secondary);">האם לבצע סט נוסף?</p>
+                <button class="btn-primary" style="background: var(--ios-green);" onclick="handleExtra(true)">כן, סט בונוס</button>
+                <button class="btn-secondary" onclick="handleExtra(false)">לא, המשך הלאה</button>
+            </div>
+        </div>
+
+        <!-- Screen: Arms Phase Question -->
+        <div id="ui-ask-arms" class="screen">
+            <div style="height: 25vh;"></div>
+            <div style="text-align: center;">
+                <h2 style="font-size: 24px; margin-bottom: 30px;">האם להוסיף ידיים?</h2>
+                <button class="btn-primary" onclick="startArmWorkout()">כן, תן בראש</button>
+                <button class="btn-secondary" style="color: var(--ios-red);" onclick="finish()">לא, סיים אימון</button>
+            </div>
+        </div>
+
+        <!-- Screen: Arms Selection -->
+        <div id="ui-arm-selection" class="screen">
+            <h1 class="large-title" id="arm-selection-title">ידיים</h1>
+            <div id="arm-options" class="ios-list"></div>
+            <button id="btn-skip-arm-group" class="btn-secondary"></button>
+        </div>
+
+        <!-- Screen: Summary -->
+        <div id="ui-summary" class="screen">
+            <h1 class="large-title">סיכום אימון</h1>
+            <div class="ios-list" style="background: #111; border: 1px solid var(--glass-border);">
+                <div class="list-item" style="cursor: default;">
+                    <div id="summary-area" class="summary-text"></div>
                 </div>
             </div>
+            <button class="btn-primary" onclick="copyResult()">העתק וסגור</button>
+        </div>
 
-            <div id="ui-arm-selection" class="screen">
-                <h2 id="arm-selection-title" class="section-title">בחר תרגיל ידיים</h2>
-                <div id="arm-options" class="vertical-stack"></div>
-                <button id="btn-skip-arm-group" class="btn-text"></button>
-            </div>
-
-            <div id="ui-summary" class="screen">
-                <div class="hero-section"><h2>האימון הושלם!</h2></div>
-                <div id="summary-area" class="summary-card"></div>
-                <button class="btn-main primary-gradient" onclick="copyResult()">העתק סיכום וסגור</button>
-            </div>
-        </main>
     </div>
-    <script src="script.js"></script>
-</body>
-</html>
+
+    <!-- JAVASCRIPT LOGIC (Preserved & Adapted) -->
+    <script>
+        /**
+         * GYMPRO ELITE ULTIMATE V10.5
+         * Logic preserved, UI completely re-engineered for iOS feel.
+         */
+
+        // --- GLOBAL STATE ---
+        let state = {
+            week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0, 
+            log: [], currentEx: null, currentExName: '',
+            historyStack: ['ui-week'],
+            timerInterval: null, seconds: 0, startTime: null,
+            isArmPhase: false, isFreestyle: false, currentMuscle: '',
+            completedExInSession: [],
+            workoutStartTime: null, workoutDurationMins: 0,
+            lastLoggedSet: null 
+        };
+
+        let audioContext;
+        let wakeLock = null;
+
+        // --- DATABASE (UNCHANGED) ---
+        const unilateralExercises = ["Dumbbell Peck Fly", "Lateral Raises", "Single Leg Curl", "Dumbbell Bicep Curls", "Cable Fly", "Concentration Curls"];
+        const exer
