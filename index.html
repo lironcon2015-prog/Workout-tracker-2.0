@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GYMPRO ELITE</title>
+    <title>GYMPRO ELITE V10.6</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,32 +19,32 @@
         <div id="ui-init" class="screen active">
             <div class="list-group">
                 <div class="list-item" onclick="initAudio()" id="audio-init-btn">
-                    <span>הפעל מצב סאונד ורטט</span>
+                    <span>הפעל סאונד ורטט</span>
                     <span class="arrow">➔</span>
                 </div>
             </div>
             <div class="list-group">
                 <div class="list-item" onclick="navigate('ui-week')">
-                    <span>התחל אימון חדש</span>
+                    <span>התחל אימון</span>
                     <span class="arrow">➔</span>
                 </div>
             </div>
         </div>
 
         <div id="ui-week" class="screen">
-            <div class="list-group-title">בחר שבוע</div>
+            <div class="list-group-title">בחר שבוע לתוכנית</div>
             <div class="list-group">
-                <div class="list-item" onclick="selectWeek(1)"><span>שבוע 1</span><span class="arrow">➔</span></div>
-                <div class="list-item" onclick="selectWeek(2)"><span>שבוע 2</span><span class="arrow">➔</span></div>
-                <div class="list-item" onclick="selectWeek(3)"><span>שבוע 3</span><span class="arrow">➔</span></div>
+                <div class="list-item" onclick="selectWeek(1)"><span>שבוע 1 (5 חזרות)</span><span class="arrow">➔</span></div>
+                <div class="list-item" onclick="selectWeek(2)"><span>שבוע 2 (3 חזרות)</span><span class="arrow">➔</span></div>
+                <div class="list-item" onclick="selectWeek(3)"><span>שבוע 3 (1-5 חזרות)</span><span class="arrow">➔</span></div>
             </div>
         </div>
 
         <div id="ui-workout-type" class="screen">
             <div class="list-group">
-                <div class="list-item" onclick="selectWorkout('A')"><span>אימון A</span><span class="arrow">➔</span></div>
-                <div class="list-item" onclick="selectWorkout('B')"><span>אימון B</span><span class="arrow">➔</span></div>
-                <div class="list-item" onclick="selectWorkout('C')"><span>אימון C</span><span class="arrow">➔</span></div>
+                <div class="list-item" onclick="selectWorkout('A')"><span>אימון A (כתפיים/חזה)</span><span class="arrow">➔</span></div>
+                <div class="list-item" onclick="selectWorkout('B')"><span>אימון B (רגליים/גב)</span><span class="arrow">➔</span></div>
+                <div class="list-item" onclick="selectWorkout('C')"><span>אימון C (חזה/כתפיים)</span><span class="arrow">➔</span></div>
             </div>
             <div class="list-group">
                 <div class="list-item" onclick="startFreestyle()"><span>אימון חופשי (Manual)</span><span class="arrow">➔</span></div>
@@ -52,20 +52,20 @@
         </div>
 
         <div id="ui-confirm" class="screen">
-            <h2 id="confirm-ex-name">תרגיל</h2>
-            <p class="secondary-label">האם תרצה לבצע את התרגיל הבא?</p>
-            <button class="btn-primary" onclick="confirmExercise(true)">כן, התחל</button>
-            <button class="btn-primary secondary" onclick="confirmExercise(false)">דלג על התרגיל</button>
+            <h2 id="confirm-ex-name">---</h2>
+            <p class="secondary-label">האם תרצה לבצע את התרגיל המתוכנן?</p>
+            <button class="btn-primary" onclick="confirmExercise(true)">התחל תרגיל</button>
+            <button class="btn-primary secondary" onclick="confirmExercise(false)">דלג</button>
         </div>
 
         <div id="ui-1rm" class="screen">
             <h2 id="rm-title">1RM</h2>
             <div class="list-group">
-                <div class="list-item" style="justify-content: center;">
-                    <select id="rm-picker" style="width: 80%;"></select>
+                <div class="list-item">
+                    <select id="rm-picker" style="width: 100%;"></select>
                 </div>
             </div>
-            <button class="btn-primary" onclick="save1RM()">אישור והמשך</button>
+            <button class="btn-primary" onclick="save1RM()">חשב משקלי עבודה</button>
         </div>
 
         <div id="ui-muscle-select" class="screen">
@@ -80,7 +80,7 @@
 
         <div id="ui-variation" class="screen">
             <h2 id="variation-title">תרגילים</h2>
-            <div class="list-group" id="variation-options"></div>
+            <div id="variation-options" class="list-group"></div>
         </div>
 
         <div id="ui-main" class="screen">
@@ -97,36 +97,26 @@
 
             <div class="list-group">
                 <div class="list-item picker-row">
-                    <div class="picker-col">
-                        <label>משקל</label>
-                        <select id="weight-picker"></select>
-                    </div>
-                    <div class="picker-col">
-                        <label>חזרות</label>
-                        <select id="reps-picker"></select>
-                    </div>
-                    <div class="picker-col">
-                        <label>RIR</label>
-                        <select id="rir-picker"></select>
-                    </div>
+                    <div class="picker-col"><label>kg</label><select id="weight-picker"></select></div>
+                    <div class="picker-col"><label>reps</label><select id="reps-picker"></select></div>
+                    <div class="picker-col"><label>RIR</label><select id="rir-picker"></select></div>
                 </div>
             </div>
 
             <button class="btn-primary success" onclick="nextStep()">LOG SET</button>
             <p id="last-set-info" class="history-label"></p>
-            <p id="unilateral-note" class="warning-label" style="display:none; text-align:center; color: var(--ios-red); font-size: 13px;">* תרגיל חד צדדי - בצע לכל צד</p>
+            <p id="unilateral-note" class="warning-label" style="display:none; color: var(--ios-red);">* בצע לכל צד בנפרד</p>
         </div>
 
         <div id="ui-extra" class="screen">
-            <div style="font-size: 50px; text-align: center; margin: 20px 0;">🔥</div>
-            <h2>מעולה!</h2>
-            <button class="btn-primary" onclick="handleExtra(true)">סט בונוס</button>
+            <div style="font-size: 60px; text-align: center;">✅</div>
+            <h2>סיימת!</h2>
+            <button class="btn-primary" onclick="handleExtra(true)">סט בונוס 🔥</button>
             <button class="btn-primary secondary" onclick="handleExtra(false)">המשך</button>
         </div>
 
         <div id="ui-ask-arms" class="screen">
-            <h2>בונוס ידיים?</h2>
-            <p class="secondary-label">האם תרצה להוסיף עבודת ידיים לסיום?</p>
+            <h2>עבודת ידיים?</h2>
             <button class="btn-primary" onclick="startArmWorkout()">כן, תן לי בייספס/טרייספס</button>
             <button class="btn-primary secondary" onclick="finish()">לא, סיים אימון</button>
         </div>
@@ -140,11 +130,10 @@
         <div id="ui-summary" class="screen">
             <h2>סיכום אימון</h2>
             <div id="summary-area"></div>
-            <button class="btn-primary" onclick="copyResult()">העתק וסיים</button>
+            <button class="btn-primary" onclick="copyResult()">העתק וסגור</button>
         </div>
     </main>
 </div>
-
 <script src="script.js"></script>
 </body>
 </html>
