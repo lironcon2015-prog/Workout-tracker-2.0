@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 10.4</title>
+    <title>GymPro Elite 10.4 Fixed</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
@@ -47,7 +47,7 @@
                 </div>
             </div>
 
-            <!-- בחירת שריר (Freestyle + Extra) -->
+            <!-- בחירת שריר -->
             <div id="ui-muscle-select" class="screen">
                 <h2 class="section-title">בחר שריר</h2>
                 <div class="grid-menu">
@@ -56,7 +56,7 @@
                     <button class="menu-card" onclick="showExerciseList('חזה')">חזה</button>
                     <button class="menu-card" onclick="showExerciseList('גב')">גב</button>
                 </div>
-                <button id="btn-finish-extra-phase" class="finish-main-btn" onclick="goToArmPhase()">סיום תוספות ומעבר לידיים</button>
+                <button id="btn-finish-extra-phase" class="finish-main-btn" onclick="goToArmPhase()">סיום ומעבר לידיים</button>
             </div>
 
             <div id="ui-variation" class="screen">
@@ -99,7 +99,7 @@
                     <div class="glass-card compact"><label>RIR</label><select id="rir-picker" class="ios-picker"></select></div>
                 </div>
 
-                <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">סיום סט</button>
+                <button id="btn-submit-set" class="btn-main primary-gradient" onclick="nextStep()">סיום סט</button>
 
                 <div id="timer-area" class="timer-section">
                     <div class="timer-wrap">
@@ -121,11 +121,10 @@
                 </div>
             </div>
 
-            <!-- שאלה על הוספת תרגילים נוספים (לפני ידיים) -->
             <div id="ui-ask-additional" class="screen flex-center">
                 <div class="confirm-box">
                     <h2>להוסיף תרגילים נוספים?</h2>
-                    <p style="color: var(--text-dim); margin-bottom: 20px;">(לפני המעבר לידיים)</p>
+                    <p style="color: var(--text-dim); margin-top: 10px; margin-bottom: 20px;">לפני המעבר לידיים</p>
                     <button class="btn-main primary-gradient" onclick="startExtraFreestyle()">כן, הוסף תרגיל</button>
                     <button class="btn-text" onclick="goToArmPhase()">לא, המשך לידיים</button>
                 </div>
@@ -142,7 +141,7 @@
             <div id="ui-arm-selection" class="screen">
                 <h2 id="arm-selection-title" class="section-title">בחר תרגיל ידיים</h2>
                 <div id="arm-options" class="vertical-stack"></div>
-                <button id="btn-skip-arm-group" class="btn-text"></button>
+                <button id="btn-skip-arm-group" class="btn-text" onclick="skipArmGroup()"></button>
             </div>
 
             <div id="ui-summary" class="screen">
