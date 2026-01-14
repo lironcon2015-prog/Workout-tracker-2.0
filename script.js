@@ -1,9 +1,7 @@
 /**
- * GYMPRO ELITE V10.4
- * Updates: Pull Ups in A, Volume calculation, Extra Freestyle Phase, Fixed Back button jump.
+ * GYMPRO ELITE V10.4 FIXED
  */
 
-// --- GLOBAL STATE ---
 let state = {
     week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0,
     log: [], currentEx: null, currentExName: '',
@@ -18,12 +16,11 @@ let state = {
 let audioContext;
 let wakeLock = null;
 
-// --- DATABASE ---
 const unilateralExercises = ["Dumbbell Peck Fly", "Lateral Raises", "Single Leg Curl", "Dumbbell Bicep Curls", "Cable Fly", "Concentration Curls"];
 const exerciseDatabase = [
     { name: "Overhead Press (Main)", muscles: ["כתפיים"], isCalc: true, baseRM: 77.5, rmRange: [65, 90], manualRange: {base: 50, min: 40, max: 80, step: 2.5} },
     { name: "Lateral Raises", muscles: ["כתפיים"], sets: [{w: 12.5, r: 13}, {w: 12.5, r: 13}, {w: 12.5, r: 11}], step: 0.5 },
-    { name: "Pull Ups", muscles: ["גב"], isBW: true, sets: [{w: 0, r: 8}, {w: 0, r: 8}, {w: 0, r: 8}], step: 5, minW: 0, maxW: 40 },
+    { name: "Pull Ups", muscles: ["גב"], sets: [{w: 0, r: 8}, {w: 0, r: 8}, {w: 0, r: 8}], step: 5, minW: 0, maxW: 40 },
     { name: "Face Pulls", muscles: ["כתפיים"], sets: [{w: 40, r: 13}, {w: 40, r: 13}, {w: 40, r: 15}], step: 2.5 },
     { name: "Barbell Shrugs", muscles: ["כתפיים"], sets: [{w: 140, r: 11}, {w: 140, r: 11}, {w: 140, r: 11}], step: 5 },
     { name: "Bench Press (Main)", muscles: ["חזה"], isCalc: true, baseRM: 122.5, rmRange: [110, 160], manualRange: {base: 85, min: 60, max: 140, step: 2.5} },
@@ -43,7 +40,7 @@ const exerciseDatabase = [
     { name: "Cable Row", muscles: ["גב"], sets: [{w: 65, r: 10}, {w: 65, r: 10}, {w: 65, r: 12}], step: 2.5 },
     { name: "Machine Row", muscles: ["גב"], sets: [{w: 50, r: 10}, {w: 50, r: 10}, {w: 50, r: 12}], step: 5 },
     { name: "Straight Arm Pulldown", muscles: ["גב"], sets: [{w: 30, r: 10}, {w: 30, r: 12}, {w: 30, r: 12}], step: 2.5 },
-    { name: "Back Extension", muscles: ["גב"], sets: [{w: 0, r: 12}, {w: 0, r: 12}, {w: 0, r: 12}], step: 5, minW: 0, maxW: 50, isBW: true }
+    { name: "Back Extension", muscles: ["גב"], sets: [{w: 0, r: 12}, {w: 0, r: 12}, {w: 0, r: 12}], step: 5, minW: 0, maxW: 50 }
 ];
 
 const armExercises = {
@@ -64,7 +61,6 @@ const workouts = {
     'C': ["Bench Press (Main)", "Incline Bench Press", "Dumbbell Peck Fly", "Lateral Raises", "Face Pulls"]
 };
 
-// --- CORE SYSTEMS ---
 function haptic(type = 'light') {
     if (!("vibrate" in navigator)) return;
     try {
@@ -103,10 +99,13 @@ async function initAudio() {
 function navigate(id) {
     haptic('light');
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+    const target = document.getElementById(id);
+    if (target) target.classList.add('active');
     
     if (id !== 'ui-main') stopRestTimer();
-    if (state.historyStack[state.historyStack.length - 1] !== id) state.historyStack.push(id);
+    if (state.historyStack[state.historyStack.length - 1] !== id) {
+        state.historyStack.push(id);
+    }
     document.getElementById('global-back').style.visibility = (id === 'ui-week') ? 'hidden' : 'visible';
 }
 
@@ -117,9 +116,8 @@ function handleBackClick() {
     const currentScreen = state.historyStack.pop();
 
     if (currentScreen === 'ui-extra') {
-        // Back from Extra to Main -> Remove the last set logged
         state.log.pop();
-        state.setIdx--; 
+        state.setIdx--;
         state.lastLoggedSet = state.log.length > 0 ? state.log[state.log.length - 1] : null;
         navigate('ui-main');
         initPickers();
@@ -127,11 +125,11 @@ function handleBackClick() {
     }
 
     if (currentScreen === 'ui-main' && state.setIdx > 0) {
-        // Back within UI-Main (Previous Set)
         state.log.pop();
         state.setIdx--;
         state.lastLoggedSet = state.log.length > 0 ? state.log[state.log.length - 1] : null;
         initPickers();
+        state.historyStack.push('ui-main'); // שמירה על המסך הנוכחי במחסנית
         return;
     }
 
@@ -139,7 +137,6 @@ function handleBackClick() {
     navigate(prevScreen);
 }
 
-// --- WORKOUT FLOW ---
 function selectWeek(w) { state.week = w; navigate('ui-workout-type'); }
 
 function selectWorkout(t) {
@@ -159,7 +156,7 @@ function startFreestyle() {
 
 function startExtraFreestyle() {
     state.isExtraPhase = true;
-    document.getElementById('btn-finish-extra-phase').innerText = "סיום תוספות ומעבר לידיים";
+    document.getElementById('btn-finish-extra-phase').innerText = "סיום ומעבר לידיים";
     navigate('ui-muscle-select');
 }
 
@@ -175,8 +172,7 @@ function showExerciseList(muscle) {
         btn.className = "menu-card";
         btn.innerHTML = `<span>${ex.name}</span><div class="arrow">➔</div>`;
         btn.onclick = () => {
-            const dbRef = exerciseDatabase.find(d => d.name === ex.name);
-            state.currentEx = JSON.parse(JSON.stringify(dbRef));
+            state.currentEx = JSON.parse(JSON.stringify(ex));
             state.currentExName = ex.name;
             if (state.currentEx.isCalc) {
                 state.currentEx.sets = Array(3).fill({w: state.currentEx.manualRange.base, r: 8});
@@ -202,7 +198,8 @@ function showConfirmScreen() {
 }
 
 function confirmExercise(doEx) {
-    const exName = workouts[state.type][state.exIdx];
+    const list = workouts[state.type];
+    const exName = list[state.exIdx];
     if (!doEx) { 
         state.log.push({ skip: true, exName: exName }); 
         state.exIdx++; 
@@ -234,8 +231,7 @@ function save1RM() {
 }
 
 function startRecording() { 
-    state.setIdx = 0; 
-    state.lastLoggedSet = null; 
+    state.setIdx = 0; state.lastLoggedSet = null; 
     navigate('ui-main'); 
     initPickers(); 
 }
@@ -266,10 +262,9 @@ function initPickers() {
     const step = state.currentEx.step || 2.5;
     const minW = state.currentEx.minW !== undefined ? state.currentEx.minW : 0;
     const maxW = state.currentEx.maxW !== undefined ? state.currentEx.maxW : 500;
-    
     const currentW = target ? target.w : (state.lastLoggedSet ? state.lastLoggedSet.w : 0);
     
-    for(let i = minW; i <= Math.max(currentW + 50, maxW); i = parseFloat((i + step).toFixed(2))) {
+    for(let i = minW; i <= Math.max(currentW + 40, maxW); i = parseFloat((i + step).toFixed(2))) {
         let o = new Option(i + " kg", i); if(i === currentW) o.selected = true; wPick.add(o);
         if (i >= maxW) break;
     }
@@ -331,4 +326,90 @@ function nextStep() {
 function handleExtra(isBonus) {
     if(isBonus) { 
         state.setIdx++; 
-        state.currentEx.sets.pus
+        state.currentEx.sets.push({...state.currentEx.sets[state.setIdx-1]}); 
+        initPickers(); 
+        navigate('ui-main'); 
+    } else {
+        state.completedExInSession.push(state.currentExName);
+        if (state.isArmPhase) showArmSelection();
+        else if (state.isFreestyle || state.isExtraPhase) navigate('ui-muscle-select');
+        else { state.exIdx++; checkFlow(); }
+    }
+}
+
+function checkFlow() {
+    const list = workouts[state.type];
+    if (list && state.exIdx < list.length) showConfirmScreen();
+    else navigate('ui-ask-additional');
+}
+
+function goToArmPhase() {
+    state.isExtraPhase = false;
+    if (state.isFreestyle) finish();
+    else navigate('ui-ask-arms');
+}
+
+function startArmWorkout() { 
+    state.isArmPhase = true; 
+    state.armGroup = 'biceps'; 
+    showArmSelection(); 
+}
+
+function showArmSelection() {
+    const list = armExercises[state.armGroup];
+    const remaining = list.filter(ex => !state.completedExInSession.includes(ex.name));
+    if (remaining.length === 0) {
+        if (state.armGroup === 'biceps') { state.armGroup = 'triceps'; showArmSelection(); }
+        else finish(); return;
+    }
+    document.getElementById('arm-selection-title').innerText = state.armGroup === 'biceps' ? "בחר בייספס" : "בחר טרייספס";
+    const opts = document.getElementById('arm-options'); opts.innerHTML = "";
+    remaining.forEach(ex => {
+        const btn = document.createElement('button'); btn.className = "menu-card"; btn.innerText = ex.name;
+        btn.onclick = () => {
+            state.currentEx = JSON.parse(JSON.stringify(ex)); 
+            state.currentExName = ex.name;
+            state.currentEx.sets = [ex.sets[0], ex.sets[0], ex.sets[0]]; 
+            startRecording();
+        };
+        opts.appendChild(btn);
+    });
+    const skipBtn = document.getElementById('btn-skip-arm-group');
+    skipBtn.innerText = state.armGroup === 'biceps' ? "דלג לטרייספס" : "סיים אימון";
+    navigate('ui-arm-selection');
+}
+
+function skipArmGroup() {
+    if (state.armGroup === 'biceps') { state.armGroup = 'triceps'; showArmSelection(); }
+    else finish();
+}
+
+function finish() {
+    haptic('success');
+    state.workoutDurationMins = Math.floor((Date.now() - state.workoutStartTime) / 60000);
+    navigate('ui-summary');
+    
+    let summaryText = `GYMPRO ELITE SUMMARY\nWorkout: ${state.type} | Week: ${state.week}\nDuration: ${state.workoutDurationMins}m\n\n`;
+    let grouped = {};
+    state.log.forEach(e => {
+        if(!grouped[e.exName]) grouped[e.exName] = { sets: [], vol: 0 };
+        if(!e.skip) {
+            grouped[e.exName].sets.push(`${e.w}kg x ${e.r} (RIR ${e.rir})`);
+            grouped[e.exName].vol += (e.w * e.r);
+        }
+    });
+    for (let ex in grouped) {
+        summaryText += `${ex} (Volume: ${grouped[ex].vol}kg):\n${grouped[ex].sets.join('\n')}\n\n`;
+    }
+    document.getElementById('summary-area').innerText = summaryText.trim();
+}
+
+function copyResult() {
+    const text = document.getElementById('summary-area').innerText;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => { haptic('light'); alert("הסיכום הועתק!"); location.reload(); });
+    } else {
+        const el = document.createElement("textarea"); el.value = text; document.body.appendChild(el); el.select();
+        document.execCommand('copy'); document.body.removeChild(el); alert("הסיכום הועתק!"); location.reload();
+    }
+}
