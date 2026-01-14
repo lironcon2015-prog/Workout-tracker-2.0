@@ -1,26 +1,31 @@
 /**
- * GYMPRO ELITE V10.4 FIXED
+ * GYMPRO ELITE V10.5 - Comprehensive Update
+ * Features: New Exercise in A, Extra Phase Logic, Fixed Back Button, Volume Calc
  */
 
+// --- GLOBAL STATE ---
 let state = {
-    week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0,
+    week: 1, type: '', rm: 100, exIdx: 0, setIdx: 0, 
     log: [], currentEx: null, currentExName: '',
     historyStack: ['ui-week'],
     timerInterval: null, seconds: 0, startTime: null,
-    isArmPhase: false, isFreestyle: false, isExtraPhase: false, currentMuscle: '',
+    isArmPhase: false, isFreestyle: false, isExtraPhase: false, // New Flag
+    currentMuscle: '',
     completedExInSession: [],
     workoutStartTime: null, workoutDurationMins: 0,
-    lastLoggedSet: null
+    lastLoggedSet: null 
 };
 
 let audioContext;
 let wakeLock = null;
 
+// --- DATABASE ---
 const unilateralExercises = ["Dumbbell Peck Fly", "Lateral Raises", "Single Leg Curl", "Dumbbell Bicep Curls", "Cable Fly", "Concentration Curls"];
+
 const exerciseDatabase = [
     { name: "Overhead Press (Main)", muscles: ["כתפיים"], isCalc: true, baseRM: 77.5, rmRange: [65, 90], manualRange: {base: 50, min: 40, max: 80, step: 2.5} },
     { name: "Lateral Raises", muscles: ["כתפיים"], sets: [{w: 12.5, r: 13}, {w: 12.5, r: 13}, {w: 12.5, r: 11}], step: 0.5 },
-    { name: "Pull Ups", muscles: ["גב"], sets: [{w: 0, r: 8}, {w: 0, r: 8}, {w: 0, r: 8}], step: 5, minW: 0, maxW: 40 },
+    { name: "Weighted Pull Ups", muscles: ["גב"], sets: [{w: 0, r: 8}, {w: 0, r: 8}, {w: 0, r: 8}], step: 5, minW: 0, maxW: 40, isBW: true },
     { name: "Face Pulls", muscles: ["כתפיים"], sets: [{w: 40, r: 13}, {w: 40, r: 13}, {w: 40, r: 15}], step: 2.5 },
     { name: "Barbell Shrugs", muscles: ["כתפיים"], sets: [{w: 140, r: 11}, {w: 140, r: 11}, {w: 140, r: 11}], step: 5 },
     { name: "Bench Press (Main)", muscles: ["חזה"], isCalc: true, baseRM: 122.5, rmRange: [110, 160], manualRange: {base: 85, min: 60, max: 140, step: 2.5} },
@@ -37,10 +42,11 @@ const exerciseDatabase = [
     { name: "Seated Calf Raise", muscles: ["רגליים"], sets: [{w: 70, r: 10}, {w: 70, r: 10}, {w: 70, r: 12}], step: 5 },
     { name: "Standing Calf Raise", muscles: ["רגליים"], sets: [{w: 110, r: 10}, {w: 110, r: 10}, {w: 110, r: 12}], step: 10 },
     { name: "Lat Pulldown", muscles: ["גב"], sets: [{w: 75, r: 10}, {w: 75, r: 10}, {w: 75, r: 11}], step: 2.5 },
+    { name: "Pull Ups", muscles: ["גב"], isBW: true, sets: [{w: 0, r: 8}, {w: 0, r: 8}, {w: 0, r: 8}] },
     { name: "Cable Row", muscles: ["גב"], sets: [{w: 65, r: 10}, {w: 65, r: 10}, {w: 65, r: 12}], step: 2.5 },
     { name: "Machine Row", muscles: ["גב"], sets: [{w: 50, r: 10}, {w: 50, r: 10}, {w: 50, r: 12}], step: 5 },
     { name: "Straight Arm Pulldown", muscles: ["גב"], sets: [{w: 30, r: 10}, {w: 30, r: 12}, {w: 30, r: 12}], step: 2.5 },
-    { name: "Back Extension", muscles: ["גב"], sets: [{w: 0, r: 12}, {w: 0, r: 12}, {w: 0, r: 12}], step: 5, minW: 0, maxW: 50 }
+    { name: "Back Extension", muscles: ["גב"], sets: [{w: 0, r: 12}, {w: 0, r: 12}, {w: 0, r: 12}], step: 5, minW: 0, maxW: 50, isBW: true }
 ];
 
 const armExercises = {
@@ -56,15 +62,17 @@ const armExercises = {
 };
 
 const workouts = {
-    'A': ["Overhead Press (Main)", "Barbell Shrugs", "Lateral Raises", "Pull Ups", "Face Pulls", "Incline Bench Press"],
+    'A': ["Overhead Press (Main)", "Barbell Shrugs", "Lateral Raises", "Weighted Pull Ups", "Face Pulls", "Incline Bench Press"],
     'B': ["Leg Press", "Single Leg Curl", "Lat Pulldown", "Cable Row", "Seated Calf Raise", "Straight Arm Pulldown"],
     'C': ["Bench Press (Main)", "Incline Bench Press", "Dumbbell Peck Fly", "Lateral Raises", "Face Pulls"]
 };
 
+// --- CORE SYSTEMS ---
+
 function haptic(type = 'light') {
     if (!("vibrate" in navigator)) return;
     try {
-        if (type === 'light') navigator.vibrate(20);
+        if (type === 'light') navigator.vibrate(20); 
         else if (type === 'medium') navigator.vibrate(40);
         else if (type === 'success') navigator.vibrate([50, 50, 50]);
         else if (type === 'warning') navigator.vibrate([30, 30]);
@@ -99,13 +107,14 @@ async function initAudio() {
 function navigate(id) {
     haptic('light');
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const target = document.getElementById(id);
-    if (target) target.classList.add('active');
+    document.getElementById(id).classList.add('active');
     
+    // Safety stop when leaving main
     if (id !== 'ui-main') stopRestTimer();
-    if (state.historyStack[state.historyStack.length - 1] !== id) {
-        state.historyStack.push(id);
-    }
+    
+    // Prevent duplicate history entries
+    if (state.historyStack[state.historyStack.length - 1] !== id) state.historyStack.push(id);
+    
     document.getElementById('global-back').style.visibility = (id === 'ui-week') ? 'hidden' : 'visible';
 }
 
@@ -113,34 +122,68 @@ function handleBackClick() {
     haptic('warning');
     if (state.historyStack.length <= 1) return;
 
-    const currentScreen = state.historyStack.pop();
+    const currentScreen = state.historyStack.pop(); // Remove current
+    const prevScreen = state.historyStack[state.historyStack.length - 1]; // Peek previous
 
+    // LOGIC 1: Undo from Bonus Screen (Result)
+    // The user finished the exercise, but wants to go back (e.g., to edit the last set).
     if (currentScreen === 'ui-extra') {
-        state.log.pop();
-        state.setIdx--;
+        // We need to return to ui-main, remove the last log, and decrement setIdx.
+        // We DON'T just navigate(prevScreen) because we need to fix the data.
+        
+        state.log.pop(); // Remove the "completed" set
+        state.setIdx--;  // Go back to the index of that set
         state.lastLoggedSet = state.log.length > 0 ? state.log[state.log.length - 1] : null;
-        navigate('ui-main');
+        
+        // Manually force navigation to main without adding to stack (since we popped extra)
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById('ui-main').classList.add('active');
+        state.historyStack.push('ui-main'); // Re-add main to be the top
+        
         initPickers();
         return;
     }
 
+    // LOGIC 2: Undo within Main Screen (Previous Set)
     if (currentScreen === 'ui-main' && state.setIdx > 0) {
+        state.historyStack.push('ui-main'); // Stay on main
         state.log.pop();
         state.setIdx--;
         state.lastLoggedSet = state.log.length > 0 ? state.log[state.log.length - 1] : null;
         initPickers();
-        state.historyStack.push('ui-main'); // שמירה על המסך הנוכחי במחסנית
         return;
     }
 
-    const prevScreen = state.historyStack.pop();
-    navigate(prevScreen);
+    // LOGIC 3: Back from Main Screen (Set 1) to Previous Exercise
+    // If we are at Set 1, going back means abandoning this exercise.
+    // If we came from "confirm", we need to undo the exIdx increment if we skipped?
+    // Actually, usually we come from 'ui-confirm' or 'ui-variation' or 'ui-extra' of previous.
+    
+    // If we are dealing with standard flow (not freestyle/extra phase)
+    if (currentScreen === 'ui-confirm' && !state.isFreestyle && !state.isExtraPhase) {
+        // If we are at confirm screen and go back, we might need to decrement exIdx 
+        // IF we arrived here via a "Skip" or "Finish" of previous.
+        // But simply popping the stack is usually safer for UI.
+        // HOWEVER, if the user hit "Skip" on prev ex, exIdx incremented. 
+        // Solving this fully requires a complex state history. 
+        // For now, we rely on the fact that if they go back to `ui-confirm` of Ex 2, 
+        // and hit back again, they go to `ui-extra` of Ex 1.
+        if (state.exIdx > 0) {
+            state.exIdx--; // Decrement index to ensure we re-evaluate the correct exercise
+        }
+    }
+
+    navigate(prevScreen); 
+    // Fix: Remove the duplicate push that navigate() does
+    state.historyStack.pop(); 
 }
+
+// --- WORKOUT FLOW ---
 
 function selectWeek(w) { state.week = w; navigate('ui-workout-type'); }
 
 function selectWorkout(t) {
-    state.type = t; state.exIdx = 0; state.log = [];
+    state.type = t; state.exIdx = 0; state.log = []; 
     state.completedExInSession = []; state.isArmPhase = false; state.isFreestyle = false; state.isExtraPhase = false;
     state.workoutStartTime = Date.now();
     showConfirmScreen();
@@ -150,13 +193,6 @@ function startFreestyle() {
     state.type = 'Freestyle'; state.log = []; state.completedExInSession = [];
     state.isArmPhase = false; state.isFreestyle = true; state.isExtraPhase = false;
     state.workoutStartTime = Date.now();
-    document.getElementById('btn-finish-extra-phase').innerText = "סיים אימון";
-    navigate('ui-muscle-select');
-}
-
-function startExtraFreestyle() {
-    state.isExtraPhase = true;
-    document.getElementById('btn-finish-extra-phase').innerText = "סיום ומעבר לידיים";
     navigate('ui-muscle-select');
 }
 
@@ -166,13 +202,16 @@ function showExerciseList(muscle) {
     options.innerHTML = "";
     document.getElementById('variation-title').innerText = `תרגילי ${muscle}`;
     
+    // Filter logic
     const filtered = exerciseDatabase.filter(ex => ex.muscles.includes(muscle) && !state.completedExInSession.includes(ex.name));
+    
     filtered.forEach(ex => {
         const btn = document.createElement('button');
         btn.className = "menu-card";
         btn.innerHTML = `<span>${ex.name}</span><div class="arrow">➔</div>`;
         btn.onclick = () => {
-            state.currentEx = JSON.parse(JSON.stringify(ex));
+            const dbRef = exerciseDatabase.find(d => d.name === ex.name);
+            state.currentEx = JSON.parse(JSON.stringify(dbRef));
             state.currentExName = ex.name;
             if (state.currentEx.isCalc) {
                 state.currentEx.sets = Array(3).fill({w: state.currentEx.manualRange.base, r: 8});
@@ -186,27 +225,21 @@ function showExerciseList(muscle) {
 }
 
 function showConfirmScreen() {
-    const list = workouts[state.type];
-    if (!list || state.exIdx >= list.length) {
-        navigate('ui-ask-additional');
-        return;
-    }
-    const exName = list[state.exIdx];
+    const exName = workouts[state.type][state.exIdx];
     const exData = exerciseDatabase.find(e => e.name === exName);
     document.getElementById('confirm-ex-name').innerText = exData.name;
     navigate('ui-confirm');
 }
 
 function confirmExercise(doEx) {
-    const list = workouts[state.type];
-    const exName = list[state.exIdx];
+    const exName = workouts[state.type][state.exIdx];
+    const exData = exerciseDatabase.find(e => e.name === exName);
     if (!doEx) { 
-        state.log.push({ skip: true, exName: exName }); 
+        state.log.push({ skip: true, exName: exData.name }); 
         state.exIdx++; 
         checkFlow(); 
         return; 
     }
-    const exData = exerciseDatabase.find(e => e.name === exName);
     state.currentEx = JSON.parse(JSON.stringify(exData));
     state.currentExName = exData.name;
     if (state.currentEx.isCalc) setupCalculatedEx();
@@ -230,11 +263,7 @@ function save1RM() {
     startRecording();
 }
 
-function startRecording() { 
-    state.setIdx = 0; state.lastLoggedSet = null; 
-    navigate('ui-main'); 
-    initPickers(); 
-}
+function startRecording() { state.setIdx = 0; state.lastLoggedSet = null; navigate('ui-main'); initPickers(); }
 
 function initPickers() {
     const target = state.currentEx.sets[state.setIdx];
@@ -248,7 +277,8 @@ function initPickers() {
     } else hist.style.display = 'none';
 
     document.getElementById('unilateral-note').style.display = unilateralExercises.some(u => state.currentExName.includes(u)) ? 'block' : 'none';
-
+    
+    // Timer Handling
     const timerArea = document.getElementById('timer-area');
     if (state.setIdx > 0) { 
         timerArea.style.visibility = 'visible'; 
@@ -260,13 +290,12 @@ function initPickers() {
 
     const wPick = document.getElementById('weight-picker'); wPick.innerHTML = "";
     const step = state.currentEx.step || 2.5;
-    const minW = state.currentEx.minW !== undefined ? state.currentEx.minW : 0;
-    const maxW = state.currentEx.maxW !== undefined ? state.currentEx.maxW : 500;
     const currentW = target ? target.w : (state.lastLoggedSet ? state.lastLoggedSet.w : 0);
+    const minW = state.currentEx.minW !== undefined ? state.currentEx.minW : Math.max(0, currentW - 40);
+    const maxW = state.currentEx.maxW !== undefined ? state.currentEx.maxW : currentW + 50;
     
-    for(let i = minW; i <= Math.max(currentW + 40, maxW); i = parseFloat((i + step).toFixed(2))) {
+    for(let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
         let o = new Option(i + " kg", i); if(i === currentW) o.selected = true; wPick.add(o);
-        if (i >= maxW) break;
     }
     
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
@@ -283,77 +312,96 @@ function resetAndStartTimer() {
     stopRestTimer();
     state.seconds = 0;
     state.startTime = Date.now();
-    const target = (state.exIdx === 0 && !state.isArmPhase && !state.isFreestyle) ? 120 : 90;
+    const target = (state.exIdx === 0 && !state.isArmPhase && !state.isFreestyle && !state.isExtraPhase) ? 120 : 90;
+
     const circle = document.getElementById('timer-progress');
     const text = document.getElementById('rest-timer');
+    
     text.innerText = "00:00";
     circle.style.strokeDashoffset = 283;
 
     state.timerInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
         state.seconds = elapsed;
+
         const mins = Math.floor(state.seconds / 60).toString().padStart(2, '0');
         const secs = (state.seconds % 60).toString().padStart(2, '0');
         text.innerText = `${mins}:${secs}`;
+
         const progress = Math.min(state.seconds / target, 1);
         circle.style.strokeDashoffset = 283 - (progress * 283);
-        if (state.seconds === target) playBeep(2);
-    }, 100);
+
+        if (state.seconds === target) {
+            playBeep(2);
+        }
+    }, 100); 
 }
 
-function stopRestTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } }
+function stopRestTimer() { 
+    if (state.timerInterval) {
+        clearInterval(state.timerInterval);
+        state.timerInterval = null;
+    }
+}
 
 function nextStep() {
     haptic('light');
-    const entry = { 
-        exName: state.currentExName, 
-        w: parseFloat(document.getElementById('weight-picker').value), 
-        r: parseInt(document.getElementById('reps-picker').value), 
-        rir: document.getElementById('rir-picker').value 
-    };
-    state.log.push(entry); 
-    state.lastLoggedSet = entry;
-    
-    if (state.setIdx < state.currentEx.sets.length - 1) { 
-        state.setIdx++; 
-        initPickers(); 
-    } else { 
-        haptic('medium'); 
-        navigate('ui-extra'); 
-    }
+    const entry = { exName: state.currentExName, w: parseFloat(document.getElementById('weight-picker').value), r: parseInt(document.getElementById('reps-picker').value), rir: document.getElementById('rir-picker').value };
+    state.log.push(entry); state.lastLoggedSet = entry;
+    if (state.setIdx < state.currentEx.sets.length - 1) { state.setIdx++; initPickers(); } 
+    else { haptic('medium'); navigate('ui-extra'); }
 }
 
 function handleExtra(isBonus) {
     if(isBonus) { 
         state.setIdx++; 
+        // Duplicate the last set configuration for the bonus
         state.currentEx.sets.push({...state.currentEx.sets[state.setIdx-1]}); 
         initPickers(); 
         navigate('ui-main'); 
     } else {
         state.completedExInSession.push(state.currentExName);
-        if (state.isArmPhase) showArmSelection();
-        else if (state.isFreestyle || state.isExtraPhase) navigate('ui-muscle-select');
-        else { state.exIdx++; checkFlow(); }
+        
+        // Flow Control
+        if (state.isExtraPhase) {
+            navigate('ui-ask-extra'); // Return to loop
+        } else if (state.isArmPhase) {
+            showArmSelection();
+        } else if (state.isFreestyle) {
+            showExerciseList(state.currentMuscle);
+        } else { 
+            state.exIdx++; 
+            checkFlow(); 
+        }
     }
 }
 
 function checkFlow() {
-    const list = workouts[state.type];
-    if (list && state.exIdx < list.length) showConfirmScreen();
-    else navigate('ui-ask-additional');
+    if (state.exIdx < workouts[state.type].length) {
+        showConfirmScreen();
+    } else {
+        // Main workout finished, offer extra exercises
+        navigate('ui-ask-extra');
+    }
 }
 
-function goToArmPhase() {
-    state.isExtraPhase = false;
-    if (state.isFreestyle) finish();
-    else navigate('ui-ask-arms');
+// --- NEW EXTRA PHASE LOGIC ---
+
+function startExtraPhase() {
+    state.isExtraPhase = true;
+    // Show muscle groups (reuse freestyle screen)
+    document.querySelector('#ui-muscle-select .finish-main-btn').style.display = 'block'; // Ensure button is visible
+    navigate('ui-muscle-select');
 }
 
-function startArmWorkout() { 
-    state.isArmPhase = true; 
-    state.armGroup = 'biceps'; 
-    showArmSelection(); 
+function finishExtraPhase() {
+    // Done with extra exercises, move to arms
+    navigate('ui-ask-arms');
 }
+
+// --- ARMS & FINISH ---
+
+function startArmWorkout() { state.isArmPhase = true; state.armGroup = 'biceps'; showArmSelection(); }
 
 function showArmSelection() {
     const list = armExercises[state.armGroup];
@@ -366,22 +414,16 @@ function showArmSelection() {
     const opts = document.getElementById('arm-options'); opts.innerHTML = "";
     remaining.forEach(ex => {
         const btn = document.createElement('button'); btn.className = "menu-card"; btn.innerText = ex.name;
-        btn.onclick = () => {
-            state.currentEx = JSON.parse(JSON.stringify(ex)); 
-            state.currentExName = ex.name;
-            state.currentEx.sets = [ex.sets[0], ex.sets[0], ex.sets[0]]; 
-            startRecording();
+        btn.onclick = () => { 
+            state.currentEx = JSON.parse(JSON.stringify(ex)); state.currentExName = ex.name;
+            state.currentEx.sets = [ex.sets[0], ex.sets[0], ex.sets[0]]; startRecording();
         };
         opts.appendChild(btn);
     });
     const skipBtn = document.getElementById('btn-skip-arm-group');
     skipBtn.innerText = state.armGroup === 'biceps' ? "דלג לטרייספס" : "סיים אימון";
+    skipBtn.onclick = () => { if (state.armGroup === 'biceps') { state.armGroup = 'triceps'; showArmSelection(); } else finish(); };
     navigate('ui-arm-selection');
-}
-
-function skipArmGroup() {
-    if (state.armGroup === 'biceps') { state.armGroup = 'triceps'; showArmSelection(); }
-    else finish();
 }
 
 function finish() {
@@ -389,7 +431,9 @@ function finish() {
     state.workoutDurationMins = Math.floor((Date.now() - state.workoutStartTime) / 60000);
     navigate('ui-summary');
     
-    let summaryText = `GYMPRO ELITE SUMMARY\nWorkout: ${state.type} | Week: ${state.week}\nDuration: ${state.workoutDurationMins}m\n\n`;
+    const workoutName = state.type === 'Freestyle' ? 'Freestyle' : `Workout ${state.type}`;
+    let summaryText = `GYMPRO ELITE SUMMARY\n${workoutName} | Week: ${state.week} | Duration: ${state.workoutDurationMins}m\n\n`;
+    
     let grouped = {};
     state.log.forEach(e => {
         if(!grouped[e.exName]) grouped[e.exName] = { sets: [], vol: 0 };
@@ -398,8 +442,9 @@ function finish() {
             grouped[e.exName].vol += (e.w * e.r);
         }
     });
-    for (let ex in grouped) {
-        summaryText += `${ex} (Volume: ${grouped[ex].vol}kg):\n${grouped[ex].sets.join('\n')}\n\n`;
+    
+    for (let ex in grouped) { 
+        summaryText += `${ex} (Vol: ${grouped[ex].vol}kg):\n${grouped[ex].sets.join('\n')}\n\n`; 
     }
     document.getElementById('summary-area').innerText = summaryText.trim();
 }
