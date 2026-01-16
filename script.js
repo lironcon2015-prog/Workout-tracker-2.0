@@ -1,5 +1,5 @@
 /**
- * GYMPRO ELITE V10.8 - FULL PATCHED (Multi-Choice & Interruption Logic)
+ * GYMPRO ELITE V10.8 - FULL PATCHED (WITH VARIATIONS)
  */
 
 // --- GLOBAL STATE ---
@@ -10,7 +10,7 @@ let state = {
     timerInterval: null, seconds: 0, startTime: null,
     isArmPhase: false, isFreestyle: false, isExtraPhase: false, isInterruption: false,
     currentMuscle: '',
-    completedExInSession: [], // Stores names of ALL completed exercises
+    completedExInSession: [],
     workoutStartTime: null, workoutDurationMins: 0,
     lastLoggedSet: null 
 };
@@ -21,6 +21,7 @@ let wakeLock = null;
 // --- DATABASE ---
 const unilateralExercises = ["Dumbbell Peck Fly", "Lateral Raises", "Single Leg Curl", "Dumbbell Bicep Curls", "Cable Fly", "Concentration Curls"];
 
+// Added "Seated Leg Curl" to DB to support variation map
 const exerciseDatabase = [
     { name: "Overhead Press (Main)", muscles: ["כתפיים"], isCalc: true, baseRM: 77.5, rmRange: [65, 90], manualRange: {base: 50, min: 40, max: 80, step: 2.5} },
     { name: "Lateral Raises", muscles: ["כתפיים"], sets: [{w: 12.5, r: 13}, {w: 12.5, r: 13}, {w: 12.5, r: 11}], step: 0.5 },
@@ -37,8 +38,8 @@ const exerciseDatabase = [
     { name: "Deadlift", muscles: ["רגליים"], sets: [{w: 100, r: 5}, {w: 100, r: 5}, {w: 100, r: 5}], step: 2.5, minW: 60, maxW: 180 },
     { name: "Romanian Deadlift", muscles: ["רגליים"], sets: [{w: 100, r: 8}, {w: 100, r: 8}, {w: 100, r: 8}], step: 2.5, minW: 60, maxW: 180 },
     { name: "Single Leg Curl", muscles: ["רגליים"], sets: [{w: 25, r: 8}, {w: 30, r: 6}, {w: 25, r: 8}], step: 2.5 },
-    { name: "Seated Leg Curl", muscles: ["רגליים"], sets: [{w: 50, r: 10}, {w: 50, r: 10}, {w: 50, r: 10}], step: 5 }, // ADDED
     { name: "Lying Leg Curl (Double)", muscles: ["רגליים"], sets: [{w: 50, r: 8}, {w: 60, r: 6}, {w: 50, r: 8}], step: 5 },
+    { name: "Seated Leg Curl", muscles: ["רגליים"], sets: [{w: 50, r: 10}, {w: 50, r: 10}, {w: 50, r: 10}], step: 5 }, 
     { name: "Seated Calf Raise", muscles: ["רגליים"], sets: [{w: 70, r: 10}, {w: 70, r: 10}, {w: 70, r: 12}], step: 5 },
     { name: "Standing Calf Raise", muscles: ["רגליים"], sets: [{w: 110, r: 10}, {w: 110, r: 10}, {w: 110, r: 12}], step: 10 },
     { name: "Lat Pulldown", muscles: ["גב"], sets: [{w: 75, r: 10}, {w: 75, r: 10}, {w: 75, r: 11}], step: 2.5 },
@@ -67,15 +68,15 @@ const workouts = {
     'C': ["Bench Press (Main)", "Incline Bench Press", "Dumbbell Peck Fly", "Lateral Raises", "Face Pulls"]
 };
 
-// --- VARIATION MAPPING (LOGIC UPDATE #1) ---
+// --- NEW: Variation Map for Multi-Choice ---
 const variationMap = {
     'B': {
-        1: { title: "בחירת תרגיל המסטרינג", options: ["Single Leg Curl", "Lying Leg Curl (Double)", "Seated Leg Curl"] },
-        3: { title: "בחירת תרגיל חתירה", options: ["Cable Row", "Machine Row"] },
-        4: { title: "בחירת תרגיל תאומים", options: ["Seated Calf Raise", "Standing Calf Raise"] }
+        1: ["Single Leg Curl", "Lying Leg Curl (Double)", "Seated Leg Curl"],
+        3: ["Cable Row", "Machine Row"],
+        4: ["Seated Calf Raise", "Standing Calf Raise"]
     },
     'C': {
-        2: { title: "בחירת תרגיל פרפר", options: ["Dumbbell Peck Fly", "Machine Peck Fly", "Cable Fly"] }
+        2: ["Dumbbell Peck Fly", "Machine Peck Fly", "Cable Fly"]
     }
 };
 
@@ -171,26 +172,25 @@ function handleBackClick() {
     state.historyStack.pop();
     const prevScreen = state.historyStack[state.historyStack.length - 1];
 
-    // FIX: אם חוזרים למסך אישור תרגיל מקודם
-    // אם זו אינטרפציה, לא משנים אינדקס ראשי
+    // FIX: Back Logic for Confirm Screen (prevents double jump if used interruption or variation)
     if (prevScreen === 'ui-confirm' && !state.isFreestyle && !state.isExtraPhase && !state.isInterruption) {
-        // אם בחרנו וריאציה, החזרה תהיה למסך הבחירה כי הוא בהיסטוריה, אז זה בסדר.
-        // אם לא בחרנו וריאציה (סתם מסך רגיל), צריך להוריד אינדקס.
+        // Only go back an index if we are genuinely retreating to a PREVIOUS finished exercise context
+        // This is tricky. If we just came from ui-week or ui-variation, we shouldn't decrement.
+        // Simplified: If we are at ui-confirm (index X) and hit back, we likely want ui-extra (index X-1) or ui-workout-type
         
-        // בדיקה: אם האינדקס הנוכחי הוא 0, אין לאן לחזור ב-exIdx
-        // אם האינדקס גדול מ-0, נבדוק אם המסך הקודם בהיסטוריה היה וריאציה. אם כן, לא מורידים אינדקס, כי נחזור ל-ui-variation
-        // אבל זה מנוהל אוטומטית ע"י ה-stack. הבעיה היא רק אם דילגנו על ui-variation (תרגיל רגיל)
-        // וה-Stack מחזיר אותנו ל-ui-confirm הקודם.
+        // Since handleExtra(false) increments exIdx, going back from confirm requires decrementing
+        // BUT ONLY IF we actually came from a completed exercise.
+        // If we came from variation selection, do not decrement.
         
-        // פתרון פשוט: אם לחצנו Back ומגיעים ל-ui-confirm, עלינו לוודא שה-State מסונכרן.
-        // כרגע ה-stack מטפל בניווט הויזואלי. אבל ה-exIdx עדיין "קדימה".
-        if (state.exIdx > 0) {
-            // האם המסך הקודם בהיסטוריה הוא ui-confirm? (כלומר חזרנו אחורה מ-ui-confirm ל-ui-confirm?)
-            // לא סביר. בד"כ חוזרים מ-ui-main ל-ui-confirm.
-            // במקרה הזה, אנחנו רוצים "לבטל" את ההתקדמות.
-             if (currentScreen === 'ui-confirm') {
-                 state.exIdx--;
-             }
+        // The safest logic for "Back" from Confirm is: 
+        // 1. If Variation exist for this index, go back to Variation selection (already handled by stack pop).
+        // 2. If no Variation, we go back to previous exercise end screen.
+        
+        // Due to stack management, 'prevScreen' might be 'ui-variation' if we came from there.
+        // If 'prevScreen' is 'ui-extra', then we need to decrement exIdx.
+        
+        if (state.historyStack[state.historyStack.length - 1] === 'ui-extra') {
+             if (state.exIdx > 0) state.exIdx--;
         }
     }
 
@@ -207,7 +207,7 @@ function selectWorkout(t) {
     state.type = t; state.exIdx = 0; state.log = []; 
     state.completedExInSession = []; state.isArmPhase = false; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
-    checkFlow();
+    showConfirmScreen();
 }
 
 function startFreestyle() {
@@ -221,19 +221,15 @@ function startFreestyle() {
     navigate('ui-muscle-select');
 }
 
-// LOGIC UPDATE #3: Smart Filtering
 function showExerciseList(muscle) {
     state.currentMuscle = muscle;
     const options = document.getElementById('variation-options');
     options.innerHTML = "";
     document.getElementById('variation-title').innerText = `תרגילי ${muscle}`;
     
-    // סינון תרגילים שכבר בוצעו
+    // SMART FILTER: Filter out completed exercises
     const filtered = exerciseDatabase.filter(ex => ex.muscles.includes(muscle) && !state.completedExInSession.includes(ex.name));
     
-    // אם זו בחירה חופשית (לא וריאציה מובנית), נציג כפתור חזרה לבחירת שריר
-    document.getElementById('btn-back-muscle').style.display = 'block';
-
     filtered.forEach(ex => {
         const btn = document.createElement('button');
         btn.className = "menu-card";
@@ -253,67 +249,58 @@ function showExerciseList(muscle) {
     navigate('ui-variation');
 }
 
-// LOGIC UPDATE #1: Show Variation Screen
-function showConfirmScreen(overrideExName = null) {
-    const exName = overrideExName || workouts[state.type][state.exIdx];
-    const exData = exerciseDatabase.find(e => e.name === exName);
-    
-    // Safety check
-    if (!exData) {
-        console.error("Exercise not found:", exName);
-        state.exIdx++;
-        checkFlow();
+// --- MODIFIED: Show Confirm Screen with Variation Support ---
+function showConfirmScreen(forceExName = null) {
+    // If specific exercise provided (from variation selection), use it.
+    if (forceExName) {
+        const exData = exerciseDatabase.find(e => e.name === forceExName);
+        state.currentEx = JSON.parse(JSON.stringify(exData));
+        state.currentExName = exData.name;
+        document.getElementById('confirm-ex-name').innerText = exData.name;
+        
+        // Show/Hide Interruption Button (Only if not first exercise)
+        const intBtn = document.getElementById('btn-interruption');
+        if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'block' : 'none';
+        
+        navigate('ui-confirm');
         return;
     }
 
-    document.getElementById('confirm-ex-name').innerText = exData.name;
-    
-    // LOGIC UPDATE #2: Hide Interruption button for first exercise of structured workout
-    const btnInterrupt = document.getElementById('btn-interrupt');
-    if (state.exIdx === 0 && !state.isFreestyle && !state.isExtraPhase && !state.isInterruption && state.type !== 'Freestyle') {
-        btnInterrupt.style.display = 'none';
-    } else {
-        btnInterrupt.style.display = 'block';
-    }
-
-    navigate('ui-confirm');
-}
-
-function checkFlow() {
-    // 1. Check if workout is done
-    if (state.exIdx >= workouts[state.type].length) {
-        navigate('ui-ask-extra');
-        return;
-    }
-
-    // 2. Check for Multi-Choice Variation (LOGIC UPDATE #1)
+    // Check if current index has variations in map
     if (variationMap[state.type] && variationMap[state.type][state.exIdx]) {
-        const vData = variationMap[state.type][state.exIdx];
-        showVariationSelect(vData);
+        showVariationSelect();
     } else {
-        // 3. Regular Exercise
-        showConfirmScreen();
+        // Standard flow
+        const exName = workouts[state.type][state.exIdx];
+        const exData = exerciseDatabase.find(e => e.name === exName);
+        state.currentEx = JSON.parse(JSON.stringify(exData));
+        state.currentExName = exData.name;
+        document.getElementById('confirm-ex-name').innerText = exData.name;
+        
+        const intBtn = document.getElementById('btn-interruption');
+        if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'block' : 'none';
+
+        navigate('ui-confirm');
     }
 }
 
-function showVariationSelect(vData) {
-    document.getElementById('variation-title').innerText = vData.title;
+// --- NEW: Variation Selection Screen ---
+function showVariationSelect() {
     const options = document.getElementById('variation-options');
     options.innerHTML = "";
-    document.getElementById('btn-back-muscle').style.display = 'none'; // Hide back to muscle select in structured flow
+    document.getElementById('variation-title').innerText = "בחר וריאציה";
+    
+    const possibleVariations = variationMap[state.type][state.exIdx];
+    
+    // Filter out if for some reason one was done (unlikely in linear flow but good safety)
+    const available = possibleVariations.filter(name => !state.completedExInSession.includes(name));
 
-    vData.options.forEach(optName => {
+    available.forEach(name => {
         const btn = document.createElement('button');
         btn.className = "menu-card";
-        btn.innerHTML = `<span>${optName}</span><div class="arrow">➔</div>`;
+        btn.innerHTML = `<span>${name}</span><div class="arrow">➔</div>`;
         btn.onclick = () => {
-            // When selecting a variation, we treat it as the chosen exercise for this slot
-            const exData = exerciseDatabase.find(e => e.name === optName);
-            state.currentEx = JSON.parse(JSON.stringify(exData));
-            state.currentExName = optName;
-            
-            // Go to confirm screen to let user Start/Skip
-            showConfirmScreen(optName);
+             showConfirmScreen(name);
         };
         options.appendChild(btn);
     });
@@ -321,23 +308,13 @@ function showVariationSelect(vData) {
 }
 
 function confirmExercise(doEx) {
-    // If skipping, we use the confirmed name (which might be a variation)
-    // If not confirmed (just skipped directly?), use default.
-    // However, showConfirmScreen sets the UI.
-    
-    const exName = document.getElementById('confirm-ex-name').innerText;
-    const exData = exerciseDatabase.find(e => e.name === exName);
-
     if (!doEx) { 
-        state.log.push({ skip: true, exName: exData.name }); 
+        state.log.push({ skip: true, exName: state.currentExName }); 
         state.exIdx++; 
         checkFlow(); 
         return; 
     }
-    
-    state.currentEx = JSON.parse(JSON.stringify(exData));
-    state.currentExName = exData.name;
-    
+    // state.currentEx is already set in showConfirmScreen
     if (state.currentEx.isCalc) setupCalculatedEx();
     else startRecording();
 }
@@ -449,20 +426,14 @@ function handleExtra(isBonus) {
         initPickers(); 
         navigate('ui-main'); 
     } else {
-        // ALWAYS Add to completed exercises
         state.completedExInSession.push(state.currentExName);
-
-        // LOGIC UPDATE #2: Interruption Return
+        
+        // --- LOGIC CHANGE: Return from Interruption ---
         if (state.isInterruption) {
             state.isInterruption = false;
-            // Return to confirm screen of the MAIN exercise (do not increment exIdx)
-            // But we need to refresh the confirm screen
-            const currentMainEx = workouts[state.type][state.exIdx];
-            // If it was a variation, we might need to recover which variation. 
-            // Simpler: Just run checkFlow(). It will re-trigger variation selection or confirm screen.
-            // Wait, if it was variation, checkFlow will show variation selection again.
-            // This is acceptable behavior: "Finish interruption -> Select Main Exercise again".
-            checkFlow();
+            // Return to confirm screen of the exercise we paused
+            // We do NOT increment exIdx here
+            navigate('ui-confirm');
         } else if (state.isExtraPhase) {
             navigate('ui-ask-extra');
         } else if (state.isArmPhase) {
@@ -476,9 +447,14 @@ function handleExtra(isBonus) {
     }
 }
 
-// --- INTERRUPTION LOGIC (LOGIC UPDATE #2) ---
+function checkFlow() {
+    if (state.exIdx < workouts[state.type].length) showConfirmScreen();
+    else navigate('ui-ask-extra');
+}
+
+// --- INTERRUPTION LOGIC (Modified) ---
 function interruptWorkout() {
-    // DO NOT increment exIdx here. We want to return to this spot.
+    // We do NOT increment exIdx. We just pause the current flow.
     state.isInterruption = true;
     document.getElementById('btn-resume-flow').style.display = 'flex';
     document.getElementById('btn-finish-extra').style.display = 'none';
@@ -487,8 +463,8 @@ function interruptWorkout() {
 
 function resumeWorkout() {
     state.isInterruption = false;
-    // Just re-run flow check for current index
-    checkFlow();
+    // Just go back to the confirm screen we left
+    navigate('ui-confirm');
 }
 
 // --- EXTRA PHASE LOGIC ---
@@ -504,19 +480,15 @@ function finishExtraPhase() { navigate('ui-ask-arms'); }
 // --- ARMS & FINISH ---
 function startArmWorkout() { state.isArmPhase = true; state.armGroup = 'biceps'; showArmSelection(); }
 
-// LOGIC UPDATE #3: Smart Filtering
 function showArmSelection() {
     const list = armExercises[state.armGroup];
     const remaining = list.filter(ex => !state.completedExInSession.includes(ex.name));
-    
     if (remaining.length === 0) {
         if (state.armGroup === 'biceps') { state.armGroup = 'triceps'; showArmSelection(); }
         else finish(); return;
     }
-    
     document.getElementById('arm-selection-title').innerText = state.armGroup === 'biceps' ? "בחר בייספס" : "בחר טרייספס";
     const opts = document.getElementById('arm-options'); opts.innerHTML = "";
-    
     remaining.forEach(ex => {
         const btn = document.createElement('button'); btn.className = "menu-card"; btn.innerText = ex.name;
         btn.onclick = () => { 
@@ -525,7 +497,6 @@ function showArmSelection() {
         };
         opts.appendChild(btn);
     });
-    
     const skipBtn = document.getElementById('btn-skip-arm-group');
     skipBtn.innerText = state.armGroup === 'biceps' ? "דלג לטרייספס" : "סיים אימון";
     skipBtn.onclick = () => { if (state.armGroup === 'biceps') { state.armGroup = 'triceps'; showArmSelection(); } else finish(); };
