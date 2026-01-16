@@ -69,7 +69,7 @@
             <div id="ui-variation" class="screen">
                 <h2 id="variation-title" class="section-title">בחר תרגיל</h2>
                 <div id="variation-options" class="vertical-stack"></div>
-                <button id="btn-back-muscle" class="btn-text" onclick="navigate('ui-muscle-select')">חזור לבחירת שריר</button>
+                <button class="btn-text" onclick="handleBackClick()">חזור</button>
             </div>
 
             <div id="ui-1rm" class="screen">
@@ -88,9 +88,7 @@
                     <button class="btn-main primary-gradient" onclick="confirmExercise(true)">התחל</button>
                     <button class="btn-text" onclick="confirmExercise(false)">דלג</button>
                     
-                    <button id="btn-interrupt" class="btn-main secondary" style="margin-top: 15px; font-size: 0.9em;" onclick="interruptWorkout()">
-                        ➕ תרגיל ביניים
-                    </button>
+                    <button id="btn-interruption" class="btn-text" style="color: var(--accent); margin-top: 20px;" onclick="interruptWorkout()">➕ הוסף תרגיל ביניים</button>
                 </div>
             </div>
 
