@@ -1,5 +1,5 @@
 /**
- * GYMPRO ELITE V11.2.0 - SMART FLOW & WARMUP LOGGING
+ * GYMPRO ELITE V11.2.1 - SWAP ON CONFIRM & WARMUP LOGGING
  */
 
 // --- GLOBAL STATE ---
@@ -250,20 +250,15 @@ function handleBackClick() {
         return;
     }
     
+    // Logic for Swap Screen Back button
     if (currentScreen === 'ui-swap-list') {
         state.historyStack.pop();
-        navigate('ui-main');
+        navigate('ui-confirm'); // Go back to Confirm screen
         return;
     }
 
     state.historyStack.pop();
     const prevScreen = state.historyStack[state.historyStack.length - 1];
-
-    if (prevScreen === 'ui-confirm' && !state.isFreestyle && !state.isExtraPhase && !state.isInterruption) {
-        if (state.historyStack[state.historyStack.length - 1] === 'ui-extra') {
-             // Logic to stay on current index if backing from confirm
-        }
-    }
 
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(prevScreen).classList.add('active');
@@ -341,6 +336,9 @@ function showConfirmScreen(forceExName = null) {
         const intBtn = document.getElementById('btn-interruption');
         if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'block' : 'none';
         
+        // Hide Swap button on forced name (interruption)
+        document.getElementById('btn-swap-confirm').style.display = 'none';
+        
         navigate('ui-confirm');
         return;
     }
@@ -356,6 +354,14 @@ function showConfirmScreen(forceExName = null) {
         
         const intBtn = document.getElementById('btn-interruption');
         if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'block' : 'none';
+
+        // Manage Swap Button Visibility
+        const swapBtn = document.getElementById('btn-swap-confirm');
+        if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
+            swapBtn.style.display = 'block';
+        } else {
+            swapBtn.style.display = 'none';
+        }
 
         navigate('ui-confirm');
     }
@@ -456,15 +462,6 @@ function initPickers() {
 
     document.getElementById('unilateral-note').style.display = unilateralExercises.some(u => state.currentExName.includes(u)) ? 'block' : 'none';
     
-    // Swap Button display
-    const btnSwap = document.getElementById('btn-swap-ex');
-    // Only show swap in standard workouts, not freestyle/extras
-    if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
-        btnSwap.style.display = 'block';
-    } else {
-        btnSwap.style.display = 'none';
-    }
-
     // Warmup Button Display Logic
     const btnWarmup = document.getElementById('btn-warmup');
     if (state.setIdx === 0 && heavyCompounds.includes(state.currentExName)) {
@@ -596,8 +593,7 @@ function openSwapMenu() {
              // Find original index
              const newIdx = workouts[state.type].indexOf(exName);
              state.exIdx = newIdx;
-             navigate('ui-main'); // Close swap
-             showConfirmScreen(); // Load new exercise
+             showConfirmScreen(); // Reload Confirm with new exercise
         };
         swapList.appendChild(btn);
     });
