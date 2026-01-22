@@ -1,5 +1,7 @@
 /**
- * GYMPRO ELITE V11.2.2 - CONTROL GRID LAYOUT
+ * GYMPRO ELITE V11.2.3
+ * - BULK COPY SUPPORT
+ * - CLEANER UI CONFIRM BUTTON
  */
 
 // --- GLOBAL STATE ---
@@ -20,6 +22,7 @@ let state = {
 let audioContext;
 let wakeLock = null;
 let currentArchiveItem = null;
+let selectedArchiveIds = new Set(); // New for V11.2.3
 
 // --- LOCAL STORAGE MANAGER ---
 const StorageManager = {
@@ -829,7 +832,7 @@ function finish() {
     document.getElementById('summary-area').innerText = summaryText.trim();
     
     const archiveObj = {
-        id: Date.now(),
+        id: Date.now(), // Using timestamp as ID
         date: dateStr,
         timestamp: Date.now(),
         type: workoutDisplayName,
@@ -854,26 +857,118 @@ function copyResult() {
 function openArchive() {
     const list = document.getElementById('archive-list');
     list.innerHTML = "";
+    
+    // Clear selection when opening archive
+    selectedArchiveIds.clear();
+    updateCopySelectedBtn();
+
     const history = StorageManager.getArchive();
 
     if (history.length === 0) {
         list.innerHTML = `<div style="text-align:center; color:gray; margin-top:20px;">אין אימונים שמורים</div>`;
     } else {
         history.forEach(item => {
-            const card = document.createElement('button');
-            card.className = "menu-card tall";
+            // Container Card
+            const card = document.createElement('div');
+            card.className = "menu-card";
+            card.style.cursor = "default"; // Override default pointer
+            
+            // Content Layout
             card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; width:100%;">
-                    <h3>${item.date}</h3>
-                    <span style="font-size:0.8em; color:#8E8E93">${item.duration} דק'</span>
+                <div class="archive-card-row">
+                    <input type="checkbox" class="archive-checkbox" data-id="${item.timestamp}">
+                    <div class="archive-info">
+                        <div style="display:flex; justify-content:space-between; width:100%;">
+                            <h3 style="margin:0;">${item.date}</h3>
+                            <span style="font-size:0.8em; color:#8E8E93">${item.duration} דק'</span>
+                        </div>
+                        <p style="margin:0; color:#8E8E93; font-size:0.85em;">${item.type}</p>
+                    </div>
+                    <div class="arrow">➔</div>
                 </div>
-                <p>${item.type}</p>
             `;
-            card.onclick = () => showArchiveDetail(item);
+            
+            // Logic for Checkbox
+            const checkbox = card.querySelector('.archive-checkbox');
+            checkbox.addEventListener('change', (e) => {
+                const id = parseInt(e.target.dataset.id);
+                toggleArchiveSelection(id);
+            });
+            checkbox.addEventListener('click', (e) => e.stopPropagation()); // Prevent card click
+
+            // Logic for clicking the card (details)
+            card.addEventListener('click', (e) => {
+                if (e.target !== checkbox) {
+                    showArchiveDetail(item);
+                }
+            });
+
             list.appendChild(card);
         });
     }
     navigate('ui-archive');
+}
+
+function toggleArchiveSelection(id) {
+    if (selectedArchiveIds.has(id)) {
+        selectedArchiveIds.delete(id);
+    } else {
+        selectedArchiveIds.add(id);
+    }
+    updateCopySelectedBtn();
+}
+
+function updateCopySelectedBtn() {
+    const btn = document.getElementById('btn-copy-selected');
+    if (selectedArchiveIds.size > 0) {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        btn.style.borderColor = "var(--accent)";
+        btn.style.color = "var(--accent)";
+    } else {
+        btn.disabled = true;
+        btn.style.opacity = "0.5";
+        btn.style.borderColor = "var(--border)";
+        btn.style.color = "var(--text-dim)";
+    }
+}
+
+function copyBulkLog(mode) {
+    const history = StorageManager.getArchive();
+    let itemsToCopy = [];
+
+    if (mode === 'all') {
+        itemsToCopy = history;
+    } else if (mode === 'selected') {
+        itemsToCopy = history.filter(item => selectedArchiveIds.has(item.timestamp));
+    }
+
+    if (itemsToCopy.length === 0) {
+        alert("לא נבחרו אימונים להעתקה");
+        return;
+    }
+
+    // Format the bulk text
+    const separator = "\n\n========================================\n\n";
+    const bulkText = itemsToCopy
+        .map(item => item.summary)
+        .join(separator);
+
+    // Copy to clipboard
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(bulkText).then(() => { 
+            haptic('success'); 
+            alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`); 
+        });
+    } else {
+        const el = document.createElement("textarea"); 
+        el.value = bulkText; 
+        document.body.appendChild(el); 
+        el.select();
+        document.execCommand('copy'); 
+        document.body.removeChild(el); 
+        alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`);
+    }
 }
 
 function showArchiveDetail(item) {
