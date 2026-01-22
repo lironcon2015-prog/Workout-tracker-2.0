@@ -1,7 +1,7 @@
 /**
- * GYMPRO ELITE V11.2.3
- * - BULK COPY SUPPORT
- * - CLEANER UI CONFIRM BUTTON
+ * GYMPRO ELITE V11.2.4
+ * - FIX: Freestyle navigation bug (Stack pruning in handleExtra)
+ * - FIX: Explicit navigation in muscle group selection
  */
 
 // --- GLOBAL STATE ---
@@ -22,7 +22,7 @@ let state = {
 let audioContext;
 let wakeLock = null;
 let currentArchiveItem = null;
-let selectedArchiveIds = new Set(); // New for V11.2.3
+let selectedArchiveIds = new Set(); 
 
 // --- LOCAL STORAGE MANAGER ---
 const StorageManager = {
@@ -97,14 +97,11 @@ const unilateralExercises = ["Dumbbell Peck Fly", "Lateral Raises", "Single Leg 
 const heavyCompounds = ["Overhead Press (Main)", "Bench Press (Main)", "Squat", "Deadlift"];
 
 const exerciseDatabase = [
-    // Overhead Press RM Range 50-100
     { name: "Overhead Press (Main)", muscles: ["כתפיים"], isCalc: true, baseRM: 60, rmRange: [50, 100], manualRange: {base: 50, min: 40, max: 80, step: 2.5} },
     { name: "Lateral Raises", muscles: ["כתפיים"], sets: [{w: 12.5, r: 13}, {w: 12.5, r: 13}, {w: 12.5, r: 11}], step: 0.5 },
     { name: "Weighted Pull Ups", muscles: ["גב"], sets: [{w: 0, r: 8}, {w: 0, r: 8}, {w: 0, r: 8}], step: 5, minW: 0, maxW: 40, isBW: true },
     { name: "Face Pulls", muscles: ["כתפיים"], sets: [{w: 40, r: 13}, {w: 40, r: 13}, {w: 40, r: 15}], step: 2.5 },
     { name: "Barbell Shrugs", muscles: ["כתפיים"], sets: [{w: 140, r: 11}, {w: 140, r: 11}, {w: 140, r: 11}], step: 5 },
-    
-    // Bench Press RM Range 80-150
     { name: "Bench Press (Main)", muscles: ["חזה"], isCalc: true, baseRM: 100, rmRange: [80, 150], manualRange: {base: 85, min: 60, max: 140, step: 2.5} },
     { name: "Incline Bench Press", muscles: ["חזה"], sets: [{w: 65, r: 9}, {w: 65, r: 9}, {w: 65, r: 9}], step: 2.5 },
     { name: "Dumbbell Peck Fly", muscles: ["חזה"], sets: [{w: 14, r: 11}, {w: 14, r: 11}, {w: 14, r: 11}], step: 2 },
@@ -146,22 +143,11 @@ const workouts = {
 };
 
 const variationMap = {
-    'B': {
-        1: ["Single Leg Curl", "Lying Leg Curl (Double)", "Seated Leg Curl"],
-        3: ["Cable Row", "Machine Row"],
-        4: ["Seated Calf Raise", "Standing Calf Raise"]
-    },
-    'C': {
-        2: ["Dumbbell Peck Fly", "Machine Peck Fly", "Cable Fly"]
-    }
+    'B': { 1: ["Single Leg Curl", "Lying Leg Curl (Double)", "Seated Leg Curl"], 3: ["Cable Row", "Machine Row"], 4: ["Seated Calf Raise", "Standing Calf Raise"] },
+    'C': { 2: ["Dumbbell Peck Fly", "Machine Peck Fly", "Cable Fly"] }
 };
 
-const workoutNames = {
-    'A': "אימון A (כתפיים-חזה-גב)",
-    'B': "אימון B (רגליים-גב)",
-    'C': "אימון C (חזה-כתפיים)",
-    'Freestyle': "Freestyle"
-};
+const workoutNames = { 'A': "אימון A (כתפיים-חזה-גב)", 'B': "אימון B (רגליים-גב)", 'C': "אימון C (חזה-כתפיים)", 'Freestyle': "Freestyle" };
 
 // --- CORE SYSTEMS ---
 
@@ -221,14 +207,9 @@ function handleBackClick() {
         state.historyStack.pop(); 
         state.log.pop();
         state.lastLoggedSet = state.log.length > 0 ? state.log[state.log.length - 1] : null;
-        
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById('ui-main').classList.add('active');
-        
-        if (state.historyStack[state.historyStack.length - 1] !== 'ui-main') {
-            state.historyStack.push('ui-main');
-        }
-        
+        if (state.historyStack[state.historyStack.length - 1] !== 'ui-main') state.historyStack.push('ui-main');
         initPickers();
         return;
     }
@@ -241,28 +222,12 @@ function handleBackClick() {
         return;
     }
 
-    if (currentScreen === 'ui-archive') {
-        state.historyStack.pop();
-        navigate('ui-week');
-        return;
-    }
-
-    if (currentScreen === 'ui-archive-detail') {
-        state.historyStack.pop();
-        navigate('ui-archive');
-        return;
-    }
-    
-    // Logic for Swap Screen Back button
-    if (currentScreen === 'ui-swap-list') {
-        state.historyStack.pop();
-        navigate('ui-confirm'); 
-        return;
-    }
+    if (currentScreen === 'ui-archive') { state.historyStack.pop(); navigate('ui-week'); return; }
+    if (currentScreen === 'ui-archive-detail') { state.historyStack.pop(); navigate('ui-archive'); return; }
+    if (currentScreen === 'ui-swap-list') { state.historyStack.pop(); navigate('ui-confirm'); return; }
 
     state.historyStack.pop();
     const prevScreen = state.historyStack[state.historyStack.length - 1];
-
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(prevScreen).classList.add('active');
     document.getElementById('global-back').style.visibility = (prevScreen === 'ui-week') ? 'hidden' : 'visible';
@@ -283,10 +248,8 @@ function startFreestyle() {
     state.type = 'Freestyle'; state.log = []; state.completedExInSession = [];
     state.isArmPhase = false; state.isFreestyle = true; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
-    
     document.getElementById('btn-resume-flow').style.display = 'none';
     document.getElementById('btn-finish-extra').style.display = 'none';
-    
     navigate('ui-muscle-select');
 }
 
@@ -304,7 +267,8 @@ function showExerciseList(muscle) {
         backBtn.style.marginBottom = "10px";
         backBtn.style.padding = "5px";
         backBtn.innerHTML = "🡠 חזור לבחירת קבוצת שריר";
-        backBtn.onclick = () => handleBackClick();
+        // FIX: Explicitly navigate to muscle select to bypass stack issues
+        backBtn.onclick = () => navigate('ui-muscle-select'); 
         options.appendChild(backBtn);
     }
 
@@ -335,13 +299,9 @@ function showConfirmScreen(forceExName = null) {
         state.currentEx = JSON.parse(JSON.stringify(exData));
         state.currentExName = exData.name;
         document.getElementById('confirm-ex-name').innerText = exData.name;
-        
         const intBtn = document.getElementById('btn-interruption');
         if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'block' : 'none';
-        
-        // Hide Swap button on forced name (interruption)
         document.getElementById('btn-swap-confirm').style.display = 'none';
-        
         navigate('ui-confirm');
         return;
     }
@@ -354,18 +314,14 @@ function showConfirmScreen(forceExName = null) {
         state.currentEx = JSON.parse(JSON.stringify(exData));
         state.currentExName = exData.name;
         document.getElementById('confirm-ex-name').innerText = exData.name;
-        
         const intBtn = document.getElementById('btn-interruption');
         if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'block' : 'none';
-
-        // Manage Swap Button Visibility
         const swapBtn = document.getElementById('btn-swap-confirm');
         if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
-            swapBtn.style.display = 'flex'; // Changed to flex for icon centering
+            swapBtn.style.display = 'flex';
         } else {
             swapBtn.style.display = 'none';
         }
-
         navigate('ui-confirm');
     }
 }
@@ -374,49 +330,32 @@ function showVariationSelect() {
     const options = document.getElementById('variation-options');
     options.innerHTML = "";
     document.getElementById('variation-title').innerText = "בחר וריאציה";
-    
     const possibleVariations = variationMap[state.type][state.exIdx];
     const available = possibleVariations.filter(name => !state.completedExInSession.includes(name));
-
     available.forEach(name => {
         const btn = document.createElement('button');
         btn.className = "menu-card";
         btn.innerHTML = `<span>${name}</span><div class="arrow">➔</div>`;
-        btn.onclick = () => {
-             showConfirmScreen(name);
-        };
+        btn.onclick = () => showConfirmScreen(name);
         options.appendChild(btn);
     });
     navigate('ui-variation');
 }
 
 function confirmExercise(doEx) {
-    if (!doEx) { 
-        state.log.push({ skip: true, exName: state.currentExName }); 
-        state.completedExInSession.push(state.currentExName); 
-        checkFlow(); 
-        return; 
-    }
-    if (state.currentEx.isCalc) setupCalculatedEx();
-    else startRecording();
+    if (!doEx) { state.log.push({ skip: true, exName: state.currentExName }); state.completedExInSession.push(state.currentExName); checkFlow(); return; }
+    if (state.currentEx.isCalc) setupCalculatedEx(); else startRecording();
 }
 
 function setupCalculatedEx() {
     document.getElementById('rm-title').innerText = `${state.currentExName} 1RM`;
-    
     const lastRM = StorageManager.getLastRM(state.currentExName);
     const defaultRM = lastRM ? lastRM : state.currentEx.baseRM;
-
     const minRM = state.currentEx.rmRange[0];
     const maxRM = state.currentEx.rmRange[1];
-
-    const p = document.getElementById('rm-picker'); 
-    p.innerHTML = "";
-    
+    const p = document.getElementById('rm-picker'); p.innerHTML = "";
     for(let i = minRM; i <= maxRM; i += 2.5) {
-        let o = new Option(i + " kg", i); 
-        if(i === defaultRM) o.selected = true; 
-        p.add(o);
+        let o = new Option(i + " kg", i); if(i === defaultRM) o.selected = true; p.add(o);
     }
     navigate('ui-1rm');
 }
@@ -424,27 +363,11 @@ function setupCalculatedEx() {
 function save1RM() {
     state.rm = parseFloat(document.getElementById('rm-picker').value);
     StorageManager.saveRM(state.currentExName, state.rm);
-
-    let percentages = [];
-    let reps = [];
-
-    // Logic per week
-    if (state.week === 1) {
-        percentages = [0.65, 0.75, 0.85, 0.75, 0.65];
-        reps = [5, 5, 5, 8, 10];
-    } else if (state.week === 2) {
-        percentages = [0.70, 0.80, 0.90, 0.80, 0.70, 0.70];
-        reps = [3, 3, 3, 8, 10, 10];
-    } else if (state.week === 3) {
-        percentages = [0.75, 0.85, 0.95, 0.85, 0.75, 0.75];
-        reps = [5, 3, 1, 8, 10, 10];
-    }
-
-    state.currentEx.sets = percentages.map((pct, i) => ({
-        w: Math.round((state.rm * pct) / 2.5) * 2.5,
-        r: reps[i]
-    }));
-
+    let percentages = []; let reps = [];
+    if (state.week === 1) { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; } 
+    else if (state.week === 2) { percentages = [0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps = [3, 3, 3, 8, 10, 10]; } 
+    else if (state.week === 3) { percentages = [0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps = [5, 3, 1, 8, 10, 10]; }
+    state.currentEx.sets = percentages.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: reps[i] }));
     startRecording();
 }
 
@@ -454,168 +377,80 @@ function initPickers() {
     const target = state.currentEx.sets[state.setIdx];
     document.getElementById('ex-display-name').innerText = state.currentExName;
     document.getElementById('set-counter').innerText = `SET ${state.setIdx + 1}/${state.currentEx.sets.length}`;
-    
     document.getElementById('set-notes').value = '';
-
     const hist = document.getElementById('last-set-info');
     if (state.lastLoggedSet) {
         hist.innerText = `סט אחרון: ${state.lastLoggedSet.w}kg x ${state.lastLoggedSet.r} (RIR ${state.lastLoggedSet.rir})`;
         hist.style.display = 'block';
     } else hist.style.display = 'none';
-
     document.getElementById('unilateral-note').style.display = unilateralExercises.some(u => state.currentExName.includes(u)) ? 'block' : 'none';
-    
-    // Warmup Button Display Logic
     const btnWarmup = document.getElementById('btn-warmup');
-    if (state.setIdx === 0 && heavyCompounds.includes(state.currentExName)) {
-        btnWarmup.style.display = 'block';
-    } else {
-        btnWarmup.style.display = 'none';
-    }
-
+    btnWarmup.style.display = (state.setIdx === 0 && heavyCompounds.includes(state.currentExName)) ? 'block' : 'none';
     const timerArea = document.getElementById('timer-area');
-    if (state.setIdx > 0) { 
-        timerArea.style.visibility = 'visible'; 
-        resetAndStartTimer(); 
-    } else { 
-        timerArea.style.visibility = 'hidden'; 
-        stopRestTimer(); 
-    }
-
+    if (state.setIdx > 0) { timerArea.style.visibility = 'visible'; resetAndStartTimer(); } 
+    else { timerArea.style.visibility = 'hidden'; stopRestTimer(); }
     const wPick = document.getElementById('weight-picker'); wPick.innerHTML = "";
     const step = state.currentEx.step || 2.5;
-    
     const savedWeight = StorageManager.getLastWeight(state.currentExName);
-    
-    let defaultW;
-    let currentR;
-
-    if (state.currentEx.isCalc && target) {
-        defaultW = target.w;
-        currentR = target.r;
-    } else {
-        if (state.lastLoggedSet) {
-            defaultW = state.lastLoggedSet.w;
-        } else if (state.setIdx === 0 && savedWeight) {
-            defaultW = savedWeight;
-        } else {
-            defaultW = target ? target.w : 0;
-        }
-
-        if (state.lastLoggedSet) {
-            currentR = state.lastLoggedSet.r;
-        } else {
-            currentR = target ? target.r : 8;
-        }
+    let defaultW; let currentR;
+    if (state.currentEx.isCalc && target) { defaultW = target.w; currentR = target.r; } 
+    else {
+        defaultW = state.lastLoggedSet ? state.lastLoggedSet.w : (state.setIdx === 0 && savedWeight ? savedWeight : (target ? target.w : 0));
+        currentR = state.lastLoggedSet ? state.lastLoggedSet.r : (target ? target.r : 8);
     }
-
-    const minW = Math.max(0, defaultW - 40);
-    const maxW = defaultW + 50;
-    
+    const minW = Math.max(0, defaultW - 40); const maxW = defaultW + 50;
     for(let i = minW; i <= maxW; i = parseFloat((i + step).toFixed(2))) {
         let o = new Option(i + " kg", i); if(i === defaultW) o.selected = true; wPick.add(o);
     }
-    
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
-    for(let i = 1; i <= 30; i++) { 
-        let o = new Option(i, i); 
-        if(i === currentR) o.selected = true; 
-        rPick.add(o); 
-    }
-    
+    for(let i = 1; i <= 30; i++) { let o = new Option(i, i); if(i === currentR) o.selected = true; rPick.add(o); }
     const rirPick = document.getElementById('rir-picker'); rirPick.innerHTML = "";
     [0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5].forEach(v => {
         let o = new Option(v === 0 ? "Fail" : v, v); if(v === 2) o.selected = true; rirPick.add(o);
     });
 }
 
-// --- WARMUP LOGIC ---
 function calcWarmup() {
     const targetW = parseFloat(document.getElementById('weight-picker').value);
-    const list = document.getElementById('warmup-list');
-    list.innerHTML = "";
-
-    const percentages = [0, 0.4, 0.6, 0.8]; // 0 means empty bar (20kg)
-    
+    const list = document.getElementById('warmup-list'); list.innerHTML = "";
+    const percentages = [0, 0.4, 0.6, 0.8];
     percentages.forEach((pct, idx) => {
-        let w;
-        let reps;
+        let w; let reps;
         if(idx === 0) { w = 20; reps = 10; }
         else {
             w = Math.round((targetW * pct) / 2.5) * 2.5;
             if (w < 20) w = 20;
-            if (idx === 1) reps = 5;
-            if (idx === 2) reps = 3;
-            if (idx === 3) reps = 2;
+            reps = idx === 1 ? 5 : (idx === 2 ? 3 : 2);
         }
-
         if (w >= targetW) return;
-
-        const row = document.createElement('div');
-        row.className = "warmup-row";
+        const row = document.createElement('div'); row.className = "warmup-row";
         row.innerHTML = `<span>סט ${idx + 1}</span><span>${w}kg x ${reps}</span>`;
         list.appendChild(row);
     });
-
     document.getElementById('warmup-modal').style.display = 'flex';
 }
 
-function closeWarmup() {
-    document.getElementById('warmup-modal').style.display = 'none';
-}
+function closeWarmup() { document.getElementById('warmup-modal').style.display = 'none'; }
+function markWarmupDone() { state.log.push({ exName: state.currentExName, isWarmup: true }); closeWarmup(); }
 
-function markWarmupDone() {
-    // Log the warmup event
-    state.log.push({
-        exName: state.currentExName,
-        isWarmup: true
-    });
-    closeWarmup();
-}
-
-// --- SWAP LOGIC ---
 function openSwapMenu() {
-    const swapList = document.getElementById('swap-options');
-    swapList.innerHTML = "";
-    
-    const workoutList = workouts[state.type];
-    if (!workoutList) return;
-
-    // Filter exercises that are NOT completed yet
+    const swapList = document.getElementById('swap-options'); swapList.innerHTML = "";
+    const workoutList = workouts[state.type]; if (!workoutList) return;
     const remaining = workoutList.filter(ex => !state.completedExInSession.includes(ex) && ex !== state.currentExName);
-    
-    if (remaining.length === 0) {
-        swapList.innerHTML = "<p style='text-align:center; color:gray;'>אין תרגילים נוספים להחלפה</p>";
-    }
-
+    if (remaining.length === 0) { swapList.innerHTML = "<p style='text-align:center; color:gray;'>אין תרגילים נוספים להחלפה</p>"; }
     remaining.forEach(exName => {
-        const btn = document.createElement('button');
-        btn.className = "menu-card";
-        btn.innerHTML = `<span>${exName}</span><div class="arrow">➔</div>`;
-        btn.onclick = () => {
-             // Find original index
-             const newIdx = workouts[state.type].indexOf(exName);
-             state.exIdx = newIdx;
-             showConfirmScreen(); // Reload Confirm with new exercise
-        };
+        const btn = document.createElement('button'); btn.className = "menu-card"; btn.innerHTML = `<span>${exName}</span><div class="arrow">➔</div>`;
+        btn.onclick = () => { state.exIdx = workouts[state.type].indexOf(exName); showConfirmScreen(); };
         swapList.appendChild(btn);
     });
-
     navigate('ui-swap-list');
 }
 
 function resetAndStartTimer() {
-    stopRestTimer();
-    state.seconds = 0;
-    state.startTime = Date.now();
+    stopRestTimer(); state.seconds = 0; state.startTime = Date.now();
     const target = (state.exIdx === 0 && !state.isArmPhase && !state.isFreestyle && !state.isExtraPhase && !state.isInterruption) ? 120 : 90;
-
-    const circle = document.getElementById('timer-progress');
-    const text = document.getElementById('rest-timer');
-    
-    text.innerText = "00:00";
-    circle.style.strokeDashoffset = 283;
-
+    const circle = document.getElementById('timer-progress'); const text = document.getElementById('rest-timer');
+    text.innerText = "00:00"; circle.style.strokeDashoffset = 283;
     state.timerInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
         state.seconds = elapsed;
@@ -628,72 +463,40 @@ function resetAndStartTimer() {
     }, 100); 
 }
 
-function stopRestTimer() { 
-    if (state.timerInterval) {
-        clearInterval(state.timerInterval);
-        state.timerInterval = null;
-    }
-}
+function stopRestTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } }
 
 function nextStep() {
     haptic('light');
     const wVal = parseFloat(document.getElementById('weight-picker').value);
     const noteVal = document.getElementById('set-notes').value.trim();
-    
-    const entry = { 
-        exName: state.currentExName, 
-        w: wVal, 
-        r: parseInt(document.getElementById('reps-picker').value), 
-        rir: document.getElementById('rir-picker').value,
-        note: noteVal 
-    };
-    
+    const entry = { exName: state.currentExName, w: wVal, r: parseInt(document.getElementById('reps-picker').value), rir: document.getElementById('rir-picker').value, note: noteVal };
     StorageManager.saveWeight(state.currentExName, wVal);
-
     state.log.push(entry); state.lastLoggedSet = entry;
     if (state.setIdx < state.currentEx.sets.length - 1) { state.setIdx++; initPickers(); } 
     else { haptic('medium'); navigate('ui-extra'); }
 }
 
 function handleExtra(isBonus) {
-    if(isBonus) { 
-        state.setIdx++; 
-        state.currentEx.sets.push({...state.currentEx.sets[state.setIdx-1]}); 
-        initPickers(); 
-        navigate('ui-main'); 
-    } else {
-        if (!state.completedExInSession.includes(state.currentExName)) {
-            state.completedExInSession.push(state.currentExName);
-        }
+    if(isBonus) { state.setIdx++; state.currentEx.sets.push({...state.currentEx.sets[state.setIdx-1]}); initPickers(); navigate('ui-main'); } 
+    else {
+        // commit exercise: prune stack to keep history clean
+        state.historyStack = state.historyStack.filter(s => s !== 'ui-main' && s !== 'ui-extra');
         
-        if (state.isInterruption) {
-            state.isInterruption = false;
-            navigate('ui-confirm');
-        } else if (state.isExtraPhase) {
-            navigate('ui-ask-extra');
-        } else if (state.isArmPhase) {
-            showArmSelection();
-        } else if (state.isFreestyle) {
-            showExerciseList(state.currentMuscle);
-        } else { 
-            checkFlow(); 
-        }
+        if (!state.completedExInSession.includes(state.currentExName)) state.completedExInSession.push(state.currentExName);
+        
+        if (state.isInterruption) { state.isInterruption = false; navigate('ui-confirm'); } 
+        else if (state.isExtraPhase) { navigate('ui-ask-extra'); } 
+        else if (state.isArmPhase) { showArmSelection(); } 
+        else if (state.isFreestyle) { showExerciseList(state.currentMuscle); } 
+        else { checkFlow(); }
     }
 }
 
 function checkFlow() {
-    // New Smart Flow Logic: Find next uncompleted exercise
     const workoutList = workouts[state.type];
-    
-    // Search for the first exercise in the list that is NOT completed
     const nextIdx = workoutList.findIndex(ex => !state.completedExInSession.includes(ex));
-    
-    if (nextIdx !== -1) {
-        state.exIdx = nextIdx;
-        showConfirmScreen();
-    } else {
-        navigate('ui-ask-extra');
-    }
+    if (nextIdx !== -1) { state.exIdx = nextIdx; showConfirmScreen(); } 
+    else { navigate('ui-ask-extra'); }
 }
 
 function interruptWorkout() {
@@ -703,50 +506,19 @@ function interruptWorkout() {
     navigate('ui-muscle-select');
 }
 
-function resumeWorkout() {
-    state.isInterruption = false;
-    navigate('ui-confirm');
-}
-
-function startExtraPhase() {
-    state.isExtraPhase = true;
-    document.getElementById('btn-resume-flow').style.display = 'none';
-    document.getElementById('btn-finish-extra').style.display = 'block';
-    navigate('ui-muscle-select');
-}
-
+function resumeWorkout() { state.isInterruption = false; navigate('ui-confirm'); }
+function startExtraPhase() { state.isExtraPhase = true; document.getElementById('btn-resume-flow').style.display = 'none'; document.getElementById('btn-finish-extra').style.display = 'block'; navigate('ui-muscle-select'); }
 function finishExtraPhase() { navigate('ui-ask-arms'); }
 
 function startArmWorkout() { 
     state.isArmPhase = true; 
-    
     document.getElementById('arm-selection-title').innerText = "מה להתחיל?";
-    const opts = document.getElementById('arm-options');
-    opts.innerHTML = "";
-    
-    const btnBi = document.createElement('button');
-    btnBi.className = "menu-card";
-    btnBi.innerHTML = `<span>יד קדמית (Biceps)</span><div class="arrow">➔</div>`;
-    btnBi.onclick = () => {
-        state.armGroup = 'biceps';
-        state.firstArmGroup = 'biceps';
-        state.secondArmGroup = 'triceps';
-        showArmSelection();
-    };
-    
-    const btnTri = document.createElement('button');
-    btnTri.className = "menu-card";
-    btnTri.innerHTML = `<span>יד אחורית (Triceps)</span><div class="arrow">➔</div>`;
-    btnTri.onclick = () => {
-        state.armGroup = 'triceps';
-        state.firstArmGroup = 'triceps';
-        state.secondArmGroup = 'biceps';
-        showArmSelection();
-    };
-
-    opts.appendChild(btnBi);
-    opts.appendChild(btnTri);
-    
+    const opts = document.getElementById('arm-options'); opts.innerHTML = "";
+    const btnBi = document.createElement('button'); btnBi.className = "menu-card"; btnBi.innerHTML = `<span>יד קדמית (Biceps)</span><div class="arrow">➔</div>`;
+    btnBi.onclick = () => { state.armGroup = 'biceps'; state.firstArmGroup = 'biceps'; state.secondArmGroup = 'triceps'; showArmSelection(); };
+    const btnTri = document.createElement('button'); btnTri.className = "menu-card"; btnTri.innerHTML = `<span>יד אחורית (Triceps)</span><div class="arrow">➔</div>`;
+    btnTri.onclick = () => { state.armGroup = 'triceps'; state.firstArmGroup = 'triceps'; state.secondArmGroup = 'biceps'; showArmSelection(); };
+    opts.appendChild(btnBi); opts.appendChild(btnTri);
     document.getElementById('btn-skip-arm-group').style.display = 'none';
     navigate('ui-arm-selection');
 }
@@ -754,46 +526,26 @@ function startArmWorkout() {
 function showArmSelection() {
     const list = armExercises[state.armGroup];
     const remaining = list.filter(ex => !state.completedExInSession.includes(ex.name));
-    
     if (remaining.length === 0) {
-        if (state.armGroup === state.firstArmGroup) {
-            state.armGroup = state.secondArmGroup;
-            showArmSelection();
-        } else {
-            finish();
-        }
+        if (state.armGroup === state.firstArmGroup) { state.armGroup = state.secondArmGroup; showArmSelection(); } 
+        else { finish(); }
         return;
     }
-
     const isBiceps = state.armGroup === 'biceps';
     document.getElementById('arm-selection-title').innerText = isBiceps ? "בחר בייספס" : "בחר טרייספס";
-    
-    const opts = document.getElementById('arm-options'); 
-    opts.innerHTML = "";
-    
+    const opts = document.getElementById('arm-options'); opts.innerHTML = "";
     remaining.forEach(ex => {
         const btn = document.createElement('button'); btn.className = "menu-card"; btn.innerText = ex.name;
-        btn.onclick = () => { 
-            state.currentEx = JSON.parse(JSON.stringify(ex)); state.currentExName = ex.name;
-            state.currentEx.sets = [ex.sets[0], ex.sets[0], ex.sets[0]]; startRecording();
-        };
+        btn.onclick = () => { state.currentEx = JSON.parse(JSON.stringify(ex)); state.currentExName = ex.name; state.currentEx.sets = [ex.sets[0], ex.sets[0], ex.sets[0]]; startRecording(); };
         opts.appendChild(btn);
     });
-
-    const skipBtn = document.getElementById('btn-skip-arm-group');
-    skipBtn.style.display = 'block';
-    
+    const skipBtn = document.getElementById('btn-skip-arm-group'); skipBtn.style.display = 'block';
     if (state.armGroup === state.firstArmGroup) {
         skipBtn.innerText = isBiceps ? "דלג לטרייספס" : "דלג לבייספס";
-        skipBtn.onclick = () => { 
-            state.armGroup = state.secondArmGroup; 
-            showArmSelection(); 
-        };
+        skipBtn.onclick = () => { state.armGroup = state.secondArmGroup; showArmSelection(); };
     } else {
-        skipBtn.innerText = "סיים אימון";
-        skipBtn.onclick = () => finish();
+        skipBtn.innerText = "סיים אימון"; skipBtn.onclick = () => finish();
     }
-    
     navigate('ui-arm-selection');
 }
 
@@ -803,229 +555,91 @@ function finish() {
     navigate('ui-summary');
     const workoutDisplayName = workoutNames[state.type] || state.type;
     const dateStr = new Date().toLocaleDateString('he-IL');
-    
     let summaryText = `GYMPRO ELITE SUMMARY\n${workoutDisplayName} | ${dateStr} | ${state.workoutDurationMins}m\n\n`;
     let grouped = {};
-    
-    // Process Log
     state.log.forEach(e => {
         if (!grouped[e.exName]) grouped[e.exName] = { sets: [], vol: 0, hasWarmup: false };
-        
-        if (e.isWarmup) {
-            grouped[e.exName].hasWarmup = true;
-        } else if (!e.skip) {
+        if (e.isWarmup) grouped[e.exName].hasWarmup = true;
+        else if (!e.skip) {
             let setStr = `${e.w}kg x ${e.r} (RIR ${e.rir})`;
             if (e.note) setStr += ` | Note: ${e.note}`;
-            grouped[e.exName].sets.push(setStr);
-            grouped[e.exName].vol += (e.w * e.r);
+            grouped[e.exName].sets.push(setStr); grouped[e.exName].vol += (e.w * e.r);
         }
     });
-
     for (let ex in grouped) { 
         summaryText += `${ex} (Vol: ${grouped[ex].vol}kg):\n`;
-        if (grouped[ex].hasWarmup) {
-            summaryText += `🔥 Warmup Completed\n`;
-        }
+        if (grouped[ex].hasWarmup) summaryText += `🔥 Warmup Completed\n`;
         summaryText += `${grouped[ex].sets.join('\n')}\n\n`; 
     }
-    
     document.getElementById('summary-area').innerText = summaryText.trim();
-    
-    const archiveObj = {
-        id: Date.now(), // Using timestamp as ID
-        date: dateStr,
-        timestamp: Date.now(),
-        type: workoutDisplayName,
-        duration: state.workoutDurationMins,
-        summary: summaryText.trim()
-    };
-    StorageManager.saveToArchive(archiveObj);
+    StorageManager.saveToArchive({ id: Date.now(), date: dateStr, timestamp: Date.now(), type: workoutDisplayName, duration: state.workoutDurationMins, summary: summaryText.trim() });
 }
 
 function copyResult() {
     const text = document.getElementById('summary-area').innerText;
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(() => { haptic('light'); alert("הסיכום הועתק ונשמר בארכיון!"); location.reload(); });
-    } else {
-        const el = document.createElement("textarea"); el.value = text; document.body.appendChild(el); el.select();
-        document.execCommand('copy'); document.body.removeChild(el); alert("הסיכום הועתק ונשמר בארכיון!"); location.reload();
-    }
+    if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { haptic('light'); alert("הסיכום הועתק ונשמר בארכיון!"); location.reload(); }); } 
+    else { const el = document.createElement("textarea"); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert("הסיכום הועתק ונשמר בארכיון!"); location.reload(); }
 }
 
 // --- ARCHIVE LOGIC ---
 
 function openArchive() {
-    const list = document.getElementById('archive-list');
-    list.innerHTML = "";
-    
-    // Clear selection when opening archive
-    selectedArchiveIds.clear();
-    updateCopySelectedBtn();
-
+    const list = document.getElementById('archive-list'); list.innerHTML = "";
+    selectedArchiveIds.clear(); updateCopySelectedBtn();
     const history = StorageManager.getArchive();
-
-    if (history.length === 0) {
-        list.innerHTML = `<div style="text-align:center; color:gray; margin-top:20px;">אין אימונים שמורים</div>`;
-    } else {
+    if (history.length === 0) { list.innerHTML = `<div style="text-align:center; color:gray; margin-top:20px;">אין אימונים שמורים</div>`; } 
+    else {
         history.forEach(item => {
-            // Container Card
-            const card = document.createElement('div');
-            card.className = "menu-card";
-            card.style.cursor = "default"; // Override default pointer
-            
-            // Content Layout
-            card.innerHTML = `
-                <div class="archive-card-row">
-                    <input type="checkbox" class="archive-checkbox" data-id="${item.timestamp}">
-                    <div class="archive-info">
-                        <div style="display:flex; justify-content:space-between; width:100%;">
-                            <h3 style="margin:0;">${item.date}</h3>
-                            <span style="font-size:0.8em; color:#8E8E93">${item.duration} דק'</span>
-                        </div>
-                        <p style="margin:0; color:#8E8E93; font-size:0.85em;">${item.type}</p>
-                    </div>
-                    <div class="arrow">➔</div>
-                </div>
-            `;
-            
-            // Logic for Checkbox
+            const card = document.createElement('div'); card.className = "menu-card"; card.style.cursor = "default";
+            card.innerHTML = `<div class="archive-card-row"><input type="checkbox" class="archive-checkbox" data-id="${item.timestamp}"><div class="archive-info"><div style="display:flex; justify-content:space-between; width:100%;"><h3 style="margin:0;">${item.date}</h3><span style="font-size:0.8em; color:#8E8E93">${item.duration} דק'</span></div><p style="margin:0; color:#8E8E93; font-size:0.85em;">${item.type}</p></div><div class="arrow">➔</div></div>`;
             const checkbox = card.querySelector('.archive-checkbox');
-            checkbox.addEventListener('change', (e) => {
-                const id = parseInt(e.target.dataset.id);
-                toggleArchiveSelection(id);
-            });
-            checkbox.addEventListener('click', (e) => e.stopPropagation()); // Prevent card click
-
-            // Logic for clicking the card (details)
-            card.addEventListener('click', (e) => {
-                if (e.target !== checkbox) {
-                    showArchiveDetail(item);
-                }
-            });
-
+            checkbox.addEventListener('change', (e) => toggleArchiveSelection(parseInt(e.target.dataset.id)));
+            checkbox.addEventListener('click', (e) => e.stopPropagation());
+            card.addEventListener('click', (e) => { if (e.target !== checkbox) showArchiveDetail(item); });
             list.appendChild(card);
         });
     }
     navigate('ui-archive');
 }
 
-function toggleArchiveSelection(id) {
-    if (selectedArchiveIds.has(id)) {
-        selectedArchiveIds.delete(id);
-    } else {
-        selectedArchiveIds.add(id);
-    }
-    updateCopySelectedBtn();
-}
+function toggleArchiveSelection(id) { if (selectedArchiveIds.has(id)) selectedArchiveIds.delete(id); else selectedArchiveIds.add(id); updateCopySelectedBtn(); }
 
 function updateCopySelectedBtn() {
     const btn = document.getElementById('btn-copy-selected');
-    if (selectedArchiveIds.size > 0) {
-        btn.disabled = false;
-        btn.style.opacity = "1";
-        btn.style.borderColor = "var(--accent)";
-        btn.style.color = "var(--accent)";
-    } else {
-        btn.disabled = true;
-        btn.style.opacity = "0.5";
-        btn.style.borderColor = "var(--border)";
-        btn.style.color = "var(--text-dim)";
-    }
+    if (selectedArchiveIds.size > 0) { btn.disabled = false; btn.style.opacity = "1"; btn.style.borderColor = "var(--accent)"; btn.style.color = "var(--accent)"; } 
+    else { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.borderColor = "var(--border)"; btn.style.color = "var(--text-dim)"; }
 }
 
 function copyBulkLog(mode) {
     const history = StorageManager.getArchive();
-    let itemsToCopy = [];
-
-    if (mode === 'all') {
-        itemsToCopy = history;
-    } else if (mode === 'selected') {
-        itemsToCopy = history.filter(item => selectedArchiveIds.has(item.timestamp));
-    }
-
-    if (itemsToCopy.length === 0) {
-        alert("לא נבחרו אימונים להעתקה");
-        return;
-    }
-
-    // Format the bulk text
-    const separator = "\n\n========================================\n\n";
-    const bulkText = itemsToCopy
-        .map(item => item.summary)
-        .join(separator);
-
-    // Copy to clipboard
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(bulkText).then(() => { 
-            haptic('success'); 
-            alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`); 
-        });
-    } else {
-        const el = document.createElement("textarea"); 
-        el.value = bulkText; 
-        document.body.appendChild(el); 
-        el.select();
-        document.execCommand('copy'); 
-        document.body.removeChild(el); 
-        alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`);
-    }
+    let itemsToCopy = mode === 'all' ? history : history.filter(item => selectedArchiveIds.has(item.timestamp));
+    if (itemsToCopy.length === 0) { alert("לא נבחרו אימונים להעתקה"); return; }
+    const bulkText = itemsToCopy.map(item => item.summary).join("\n\n========================================\n\n");
+    if (navigator.clipboard) { navigator.clipboard.writeText(bulkText).then(() => { haptic('success'); alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`); }); } 
+    else { const el = document.createElement("textarea"); el.value = bulkText; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`); }
 }
 
 function showArchiveDetail(item) {
-    currentArchiveItem = item;
-    document.getElementById('archive-detail-content').innerText = item.summary;
-    
-    const copyBtn = document.getElementById('btn-archive-copy');
-    copyBtn.onclick = () => {
-        navigator.clipboard.writeText(item.summary).then(() => alert("הועתק!"));
-    };
-
-    const delBtn = document.getElementById('btn-archive-delete');
-    delBtn.onclick = () => {
-        if(confirm("למחוק אימון זה מהארכיון?")) {
-            StorageManager.deleteFromArchive(item.timestamp);
-            openArchive(); 
-        }
-    };
-
+    currentArchiveItem = item; document.getElementById('archive-detail-content').innerText = item.summary;
+    document.getElementById('btn-archive-copy').onclick = () => navigator.clipboard.writeText(item.summary).then(() => alert("הועתק!"));
+    document.getElementById('btn-archive-delete').onclick = () => { if(confirm("למחוק אימון זה מהארכיון?")) { StorageManager.deleteFromArchive(item.timestamp); openArchive(); } };
     navigate('ui-archive-detail');
 }
 
-// --- DATA EXPORT/IMPORT ---
 function exportData() {
     const data = StorageManager.getAllData();
-    const jsonString = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonString], {type: "application/json"});
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gympro_backup_${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"})); a.download = `gympro_backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
-function triggerImport() {
-    document.getElementById('import-file').click();
-}
-
+function triggerImport() { document.getElementById('import-file').click(); }
 function importData(input) {
-    const file = input.files[0];
-    if(!file) return;
-    
+    const file = input.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            if(confirm("האם לדרוס את הנתונים הקיימים ולשחזר מהגיבוי?")) {
-                StorageManager.restoreData(data);
-                alert("הנתונים שוחזרו בהצלחה! האפליקציה תרענן את עצמה.");
-                location.reload();
-            }
-        } catch(err) {
-            alert("שגיאה בטעינת הקובץ. וודא שזהו קובץ גיבוי תקין.");
-        }
+            if(confirm("האם לדרוס את הנתונים הקיימים ולשחזר מהגיבוי?")) { StorageManager.restoreData(data); alert("הנתונים שוחזרו בהצלחה! האפליקציה תרענן את עצמה."); location.reload(); }
+        } catch(err) { alert("שגיאה בטעינת הקובץ. וודא שזהו קובץ גיבוי תקין."); }
     };
     reader.readAsText(file);
 }
