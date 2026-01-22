@@ -1,5 +1,5 @@
 /**
- * GYMPRO ELITE V11.2.1 - SWAP ON CONFIRM & WARMUP LOGGING
+ * GYMPRO ELITE V11.2.2 - CONTROL GRID LAYOUT
  */
 
 // --- GLOBAL STATE ---
@@ -253,7 +253,7 @@ function handleBackClick() {
     // Logic for Swap Screen Back button
     if (currentScreen === 'ui-swap-list') {
         state.historyStack.pop();
-        navigate('ui-confirm'); // Go back to Confirm screen
+        navigate('ui-confirm'); 
         return;
     }
 
@@ -358,7 +358,7 @@ function showConfirmScreen(forceExName = null) {
         // Manage Swap Button Visibility
         const swapBtn = document.getElementById('btn-swap-confirm');
         if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
-            swapBtn.style.display = 'block';
+            swapBtn.style.display = 'flex'; // Changed to flex for icon centering
         } else {
             swapBtn.style.display = 'none';
         }
@@ -390,7 +390,7 @@ function showVariationSelect() {
 function confirmExercise(doEx) {
     if (!doEx) { 
         state.log.push({ skip: true, exName: state.currentExName }); 
-        state.completedExInSession.push(state.currentExName); // Mark skipped as completed for flow
+        state.completedExInSession.push(state.currentExName); 
         checkFlow(); 
         return; 
     }
