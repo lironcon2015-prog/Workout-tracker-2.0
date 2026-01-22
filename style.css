@@ -106,6 +106,23 @@ body {
     margin-top: 15px; cursor: pointer;
 }
 .btn-text { background: none; border: none; color: var(--text-dim); padding: 15px; width: 100%; margin-top: 5px; font-size: 0.9em; }
+
+/* Secondary Action Button - for Swap */
+.btn-secondary-action {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 15px;
+    border-radius: var(--ios-radius);
+    width: 100%;
+    margin-top: 15px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-secondary-action:active { background: rgba(10, 132, 255, 0.1); }
+
 .primary-gradient { background: var(--accent-gradient); }
 .success-gradient { background: var(--success-gradient); }
 .secondary { background: #3a3a3c; }
@@ -143,12 +160,6 @@ body {
     display: none; cursor: pointer; animation: pulseRed 2s infinite;
 }
 @keyframes pulseRed { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
-.swap-btn {
-    background: none; border: 1px solid var(--border);
-    color: var(--accent); font-size: 1.2em; padding: 5px 12px;
-    border-radius: 12px; cursor: pointer;
-}
 
 .summary-card {
     background: #111; padding: 20px; border-radius: var(--ios-radius);
