@@ -107,21 +107,22 @@ body {
 }
 .btn-text { background: none; border: none; color: var(--text-dim); padding: 15px; width: 100%; margin-top: 5px; font-size: 0.9em; }
 
-/* Secondary Action Button - for Swap */
-.btn-secondary-action {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    padding: 15px;
-    border-radius: var(--ios-radius);
-    width: 100%;
-    margin-top: 15px;
-    font-size: 1em;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
+/* Control Grid System (New) */
+.action-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+    margin-top: 25px; width: 100%;
 }
-.btn-secondary-action:active { background: rgba(10, 132, 255, 0.1); }
+.control-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 5px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; color: var(--text-dim); cursor: pointer;
+    transition: all 0.2s;
+}
+.control-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
+.control-btn .icon { font-size: 1.4em; }
+.control-btn span { font-size: 0.75em; font-weight: 600; }
+.control-btn.accent-border { border-color: rgba(10, 132, 255, 0.4); color: var(--text); background: rgba(10, 132, 255, 0.1); }
 
 .primary-gradient { background: var(--accent-gradient); }
 .success-gradient { background: var(--success-gradient); }
