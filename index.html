@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 11.2.3</title>
+    <title>GymPro Elite 11.2.5</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
@@ -22,13 +22,20 @@
         </div>
     </div>
 
+    <!-- Bottom Sheet (Drawer) -->
+    <div id="sheet-overlay" class="bottom-sheet-overlay" onclick="closeDayDrawer()"></div>
+    <div id="sheet-modal" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div id="sheet-content" class="sheet-content"></div>
+    </div>
+
     <div class="app-container">
         <header class="app-header">
             <button id="global-back" class="back-btn" onclick="handleBackClick()">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </button>
             <div class="brand-logo">GYMPRO <span>ELITE</span></div>
-            <div class="version-tag">V 11.2.3</div>
+            <div class="version-tag">V 11.2.5</div>
         </header>
 
         <main class="content-area">
@@ -111,7 +118,6 @@
                     <p>התרגיל הבא:</p>
                     <h2 id="confirm-ex-name"></h2>
                     
-                    <!-- UPDATED BUTTON: Removed Lightning Icon -->
                     <button class="btn-main primary-gradient" onclick="confirmExercise(true)">התחל אימון</button>
                     
                     <!-- CONTROL GRID -->
@@ -203,6 +209,10 @@
 
             <div id="ui-summary" class="screen">
                 <div class="hero-section"><h2>סיכום אימון</h2></div>
+                
+                <!-- New Note Input -->
+                <input type="text" id="summary-note" class="minimal-input" placeholder="הערות כלליות לאימון (אופציונלי)" style="margin-bottom: 20px;">
+                
                 <div id="summary-area" class="summary-card"></div>
                 <button class="btn-main primary-gradient" onclick="copyResult()">העתק וסגור</button>
             </div>
@@ -221,19 +231,42 @@
                     </button>
                 </div>
 
-                <!-- NEW: Archive Actions -->
-                <div class="archive-actions" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <button class="glass-card compact" style="width: 100%; color: var(--accent); border-color: var(--accent); font-weight:600;" onclick="copyBulkLog('all')">
-                        העתק הכל
-                    </button>
-                    <button id="btn-copy-selected" class="glass-card compact" style="width: 100%; color: var(--text-dim); border-color: var(--border); font-weight:600; opacity: 0.5;" onclick="copyBulkLog('selected')" disabled>
-                        העתק מסומנים
-                    </button>
+                <!-- View Toggle -->
+                <div class="segmented-control">
+                    <button id="btn-view-list" class="segment-btn active" onclick="switchArchiveView('list')">רשימה</button>
+                    <button id="btn-view-calendar" class="segment-btn" onclick="switchArchiveView('calendar')">לוח שנה</button>
                 </div>
 
-                <input type="file" id="import-file" style="display: none;" onchange="importData(this)">
+                <!-- Calendar View Container -->
+                <div id="calendar-view" style="display: none;">
+                    <div class="calendar-wrapper">
+                        <div class="calendar-header">
+                            <button class="month-nav-btn" onclick="changeMonth(-1)">❮</button>
+                            <span id="current-month-display" class="current-month-display"></span>
+                            <button class="month-nav-btn" onclick="changeMonth(1)">❯</button>
+                        </div>
+                        <div class="calendar-grid">
+                            <div class="day-name">א'</div><div class="day-name">ב'</div><div class="day-name">ג'</div>
+                            <div class="day-name">ד'</div><div class="day-name">ה'</div><div class="day-name">ו'</div><div class="day-name">ש'</div>
+                        </div>
+                        <div id="calendar-days" class="calendar-grid"></div>
+                    </div>
+                </div>
 
-                <div id="archive-list" class="vertical-stack"></div>
+                <!-- List View Container -->
+                <div id="list-view-container">
+                    <div class="archive-actions" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="glass-card compact" style="width: 100%; color: var(--accent); border-color: var(--accent); font-weight:600;" onclick="copyBulkLog('all')">
+                            העתק הכל
+                        </button>
+                        <button id="btn-copy-selected" class="glass-card compact" style="width: 100%; color: var(--text-dim); border-color: var(--border); font-weight:600; opacity: 0.5;" onclick="copyBulkLog('selected')" disabled>
+                            העתק מסומנים
+                        </button>
+                    </div>
+                    <div id="archive-list" class="vertical-stack"></div>
+                </div>
+                
+                <input type="file" id="import-file" style="display: none;" onchange="importData(this)">
             </div>
 
             <div id="ui-archive-detail" class="screen">
