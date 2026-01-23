@@ -1,7 +1,8 @@
 /**
- * GYMPRO ELITE V11.2.4
- * - FIX: Freestyle navigation bug (Stack pruning in handleExtra)
- * - FIX: Explicit navigation in muscle group selection
+ * GYMPRO ELITE V11.2.5
+ * - FIX: checkFlow logic supports variations correctly
+ * - NEW: Optional workout note in summary screen
+ * - REF: Archive save moved to 'copyResult' to include notes
  */
 
 // --- GLOBAL STATE ---
@@ -16,7 +17,11 @@ let state = {
     workoutStartTime: null, workoutDurationMins: 0,
     lastLoggedSet: null,
     firstArmGroup: null, 
-    secondArmGroup: null
+    secondArmGroup: null,
+    lastWorkoutDetails: {}, // To store grouped details for archive
+    // Archive State
+    archiveView: 'list', // 'list' or 'calendar'
+    calendarOffset: 0 // Months from current
 };
 
 let audioContext;
@@ -267,7 +272,6 @@ function showExerciseList(muscle) {
         backBtn.style.marginBottom = "10px";
         backBtn.style.padding = "5px";
         backBtn.innerHTML = "🡠 חזור לבחירת קבוצת שריר";
-        // FIX: Explicitly navigate to muscle select to bypass stack issues
         backBtn.onclick = () => navigate('ui-muscle-select'); 
         options.appendChild(backBtn);
     }
@@ -493,10 +497,33 @@ function handleExtra(isBonus) {
 }
 
 function checkFlow() {
+    // UPDATED LOGIC TO HANDLE VARIATIONS CORRECTLY
     const workoutList = workouts[state.type];
-    const nextIdx = workoutList.findIndex(ex => !state.completedExInSession.includes(ex));
-    if (nextIdx !== -1) { state.exIdx = nextIdx; showConfirmScreen(); } 
-    else { navigate('ui-ask-extra'); }
+    let foundNext = false;
+
+    for (let i = 0; i < workoutList.length; i++) {
+        const defaultName = workoutList[i];
+        let isDone = state.completedExInSession.includes(defaultName);
+
+        // If default isn't done, check if any variation of this slot is done
+        if (!isDone && variationMap[state.type] && variationMap[state.type][i]) {
+            const variations = variationMap[state.type][i];
+            if (variations.some(v => state.completedExInSession.includes(v))) {
+                isDone = true;
+            }
+        }
+
+        if (!isDone) {
+            state.exIdx = i;
+            showConfirmScreen();
+            foundNext = true;
+            break;
+        }
+    }
+
+    if (!foundNext) {
+        navigate('ui-ask-extra');
+    }
 }
 
 function interruptWorkout() {
@@ -553,10 +580,15 @@ function finish() {
     haptic('success');
     state.workoutDurationMins = Math.floor((Date.now() - state.workoutStartTime) / 60000);
     navigate('ui-summary');
+    
+    // Clear note input for fresh entry
+    document.getElementById('summary-note').value = "";
+    
     const workoutDisplayName = workoutNames[state.type] || state.type;
     const dateStr = new Date().toLocaleDateString('he-IL');
     let summaryText = `GYMPRO ELITE SUMMARY\n${workoutDisplayName} | ${dateStr} | ${state.workoutDurationMins}m\n\n`;
     let grouped = {};
+    
     state.log.forEach(e => {
         if (!grouped[e.exName]) grouped[e.exName] = { sets: [], vol: 0, hasWarmup: false };
         if (e.isWarmup) grouped[e.exName].hasWarmup = true;
@@ -566,24 +598,91 @@ function finish() {
             grouped[e.exName].sets.push(setStr); grouped[e.exName].vol += (e.w * e.r);
         }
     });
+
     for (let ex in grouped) { 
         summaryText += `${ex} (Vol: ${grouped[ex].vol}kg):\n`;
         if (grouped[ex].hasWarmup) summaryText += `🔥 Warmup Completed\n`;
         summaryText += `${grouped[ex].sets.join('\n')}\n\n`; 
     }
+    
     document.getElementById('summary-area').innerText = summaryText.trim();
-    StorageManager.saveToArchive({ id: Date.now(), date: dateStr, timestamp: Date.now(), type: workoutDisplayName, duration: state.workoutDurationMins, summary: summaryText.trim() });
+    
+    // Store details for save later
+    state.lastWorkoutDetails = grouped;
 }
 
 function copyResult() {
-    const text = document.getElementById('summary-area').innerText;
-    if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { haptic('light'); alert("הסיכום הועתק ונשמר בארכיון!"); location.reload(); }); } 
-    else { const el = document.createElement("textarea"); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert("הסיכום הועתק ונשמר בארכיון!"); location.reload(); }
+    // 1. Get base text
+    let text = document.getElementById('summary-area').innerText;
+    
+    // 2. Get optional note
+    const userNote = document.getElementById('summary-note').value.trim();
+    if (userNote) {
+        text += `\n\n📝 הערות כלליות: ${userNote}`;
+    }
+
+    // 3. Prepare Archive Object
+    const workoutDisplayName = workoutNames[state.type] || state.type;
+    const dateStr = new Date().toLocaleDateString('he-IL');
+    
+    const archiveObj = { 
+        id: Date.now(), 
+        date: dateStr, 
+        timestamp: Date.now(), 
+        type: workoutDisplayName, 
+        duration: state.workoutDurationMins, 
+        summary: text, 
+        details: state.lastWorkoutDetails,
+        generalNote: userNote // Save note specifically as well
+    };
+
+    // 4. Save to Archive
+    StorageManager.saveToArchive(archiveObj);
+
+    // 5. Copy & Close
+    if (navigator.clipboard) { 
+        navigator.clipboard.writeText(text).then(() => { 
+            haptic('light'); 
+            alert("הסיכום (כולל הערות) הועתק ונשמר בארכיון!"); 
+            location.reload(); 
+        }); 
+    } else { 
+        const el = document.createElement("textarea"); 
+        el.value = text; 
+        document.body.appendChild(el); 
+        el.select(); 
+        document.execCommand('copy'); 
+        document.body.removeChild(el); 
+        alert("הסיכום (כולל הערות) הועתק ונשמר בארכיון!"); 
+        location.reload(); 
+    }
 }
 
-// --- ARCHIVE LOGIC ---
+// --- ARCHIVE LOGIC & CALENDAR ---
+
+function switchArchiveView(view) {
+    state.archiveView = view;
+    document.getElementById('btn-view-list').className = `segment-btn ${view === 'list' ? 'active' : ''}`;
+    document.getElementById('btn-view-calendar').className = `segment-btn ${view === 'calendar' ? 'active' : ''}`;
+    openArchive();
+}
 
 function openArchive() {
+    if (state.archiveView === 'list') {
+        document.getElementById('list-view-container').style.display = 'block';
+        document.getElementById('calendar-view').style.display = 'none';
+        renderArchiveList();
+    } else {
+        document.getElementById('list-view-container').style.display = 'none';
+        document.getElementById('calendar-view').style.display = 'block';
+        state.calendarOffset = 0;
+        renderCalendar();
+    }
+    navigate('ui-archive');
+}
+
+// --- LIST VIEW LOGIC ---
+function renderArchiveList() {
     const list = document.getElementById('archive-list'); list.innerHTML = "";
     selectedArchiveIds.clear(); updateCopySelectedBtn();
     const history = StorageManager.getArchive();
@@ -599,7 +698,6 @@ function openArchive() {
             list.appendChild(card);
         });
     }
-    navigate('ui-archive');
 }
 
 function toggleArchiveSelection(id) { if (selectedArchiveIds.has(id)) selectedArchiveIds.delete(id); else selectedArchiveIds.add(id); updateCopySelectedBtn(); }
@@ -617,6 +715,126 @@ function copyBulkLog(mode) {
     const bulkText = itemsToCopy.map(item => item.summary).join("\n\n========================================\n\n");
     if (navigator.clipboard) { navigator.clipboard.writeText(bulkText).then(() => { haptic('success'); alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`); }); } 
     else { const el = document.createElement("textarea"); el.value = bulkText; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert(`הועתקו ${itemsToCopy.length} אימונים בהצלחה!`); }
+}
+
+// --- CALENDAR VIEW LOGIC ---
+function changeMonth(delta) {
+    state.calendarOffset += delta;
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('calendar-days');
+    grid.innerHTML = "";
+    
+    // Calculate dates
+    const now = new Date();
+    const targetDate = new Date(now.getFullYear(), now.getMonth() + state.calendarOffset, 1);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    
+    // Set Header
+    const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+    document.getElementById('current-month-display').innerText = `${monthNames[month]} ${year}`;
+    
+    // Grid logic
+    const firstDayIndex = targetDate.getDay(); // 0 is Sunday
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Retrieve data
+    const history = StorageManager.getArchive();
+    const monthWorkouts = history.filter(item => {
+        const d = new Date(item.timestamp);
+        return d.getMonth() === month && d.getFullYear() === year;
+    });
+
+    // Render Empty Cells
+    for(let i = 0; i < firstDayIndex; i++) {
+        const cell = document.createElement('div');
+        cell.className = "calendar-cell empty";
+        grid.appendChild(cell);
+    }
+
+    // Render Days
+    const today = new Date();
+    for(let day = 1; day <= daysInMonth; day++) {
+        const cell = document.createElement('div');
+        cell.className = "calendar-cell";
+        cell.innerHTML = `<span>${day}</span>`;
+        
+        // Highlight today
+        if(state.calendarOffset === 0 && day === today.getDate()) {
+            cell.classList.add('today');
+        }
+
+        // Find workouts for this day
+        const dailyWorkouts = monthWorkouts.filter(item => new Date(item.timestamp).getDate() === day);
+        if(dailyWorkouts.length > 0) {
+            const dotsContainer = document.createElement('div');
+            dotsContainer.className = "dots-container";
+            dailyWorkouts.forEach(wo => {
+                const dot = document.createElement('div');
+                let dotClass = 'type-free';
+                if(wo.type.includes('A')) dotClass = 'type-a';
+                else if(wo.type.includes('B')) dotClass = 'type-b';
+                else if(wo.type.includes('C')) dotClass = 'type-c';
+                dot.className = `dot ${dotClass}`;
+                dotsContainer.appendChild(dot);
+            });
+            cell.appendChild(dotsContainer);
+            cell.onclick = () => openDayDrawer(dailyWorkouts, day, monthNames[month]);
+        }
+        grid.appendChild(cell);
+    }
+}
+
+// --- BOTTOM SHEET DRAWER ---
+function openDayDrawer(workouts, day, monthName) {
+    const drawer = document.getElementById('sheet-modal');
+    const overlay = document.getElementById('sheet-overlay');
+    const content = document.getElementById('sheet-content');
+    
+    let html = `<h3>${day} ב${monthName}</h3>`;
+    if(workouts.length === 0) {
+        html += `<p>אין אימונים ביום זה</p>`;
+    } else {
+        html += `<p>נמצאו ${workouts.length} אימונים:</p>`;
+        workouts.forEach(wo => {
+            let dotColor = '#BF5AF2';
+            if(wo.type.includes('A')) dotColor = '#0A84FF';
+            else if(wo.type.includes('B')) dotColor = '#32D74B';
+            else if(wo.type.includes('C')) dotColor = '#FF9F0A';
+            
+            html += `
+            <div class="mini-workout-item" onclick='openArchiveFromDrawer(${JSON.stringify(wo).replace(/'/g, "&#39;")})'>
+                <div class="mini-dot" style="background:${dotColor}"></div>
+                <div style="flex-grow:1;">
+                    <div style="font-weight:600; font-size:0.95em;">${wo.type}</div>
+                    <div style="font-size:0.8em; color:#8E8E93;">${wo.duration} דק' • ${new Date(wo.timestamp).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'})}</div>
+                </div>
+                <div class="arrow">➔</div>
+            </div>`;
+        });
+    }
+    
+    content.innerHTML = html;
+    overlay.style.display = 'block';
+    drawer.classList.add('open');
+    haptic('light');
+}
+
+function closeDayDrawer() {
+    const drawer = document.getElementById('sheet-modal');
+    const overlay = document.getElementById('sheet-overlay');
+    drawer.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+}
+
+function openArchiveFromDrawer(itemData) {
+    closeDayDrawer();
+    // Re-finding item by timestamp is safer.
+    const realItem = StorageManager.getArchive().find(i => i.timestamp === itemData.timestamp);
+    if(realItem) showArchiveDetail(realItem);
 }
 
 function showArchiveDetail(item) {
