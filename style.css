@@ -40,7 +40,13 @@ body {
 .brand-logo span { color: var(--accent); }
 .settings-btn { background: none; border: none; font-size: 1.2em; cursor: pointer; padding: 8px; }
 
-.version-tag { font-size: 0.7em; color: var(--text-dim); background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px; }
+.version-footer { 
+    font-size: 0.75em; 
+    color: var(--text-dim); 
+    text-align: center; 
+    margin-top: 30px; 
+    opacity: 0.6; 
+}
 
 /* Screens & Animation */
 .screen { display: none; flex-direction: column; height: 100%; overflow-y: auto; padding-bottom: 40px; scrollbar-width: none; }
@@ -292,12 +298,23 @@ body {
 }
 .history-item:last-child { border-bottom: none; }
 
-/* Skip Button - Passive */
+/* Skip Button - Passive & Framed */
 .passive-skip {
-    margin-top: 20px;
-    font-size: 0.9em;
+    margin: 25px auto 0;
+    font-size: 0.85em;
     color: var(--text-dim);
-    opacity: 0.8;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 10px 20px;
+    width: auto;
+    display: block; /* Toggled via JS */
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.passive-skip:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
 }
 
 /* --- WORKOUT MANAGER STYLES --- */
