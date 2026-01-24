@@ -1,8 +1,9 @@
 /**
- * GYMPRO ELITE V12.1.0
- * - Workout Manager System (Create, Edit, Duplicate, Delete)
- * - Dynamic Main Menu Rendering
- * - Smart Exercise Selector (Search + Filter)
+ * GYMPRO ELITE V12.1.1
+ * - Workout Manager System
+ * - Passive Skip Button
+ * - Clean History UI
+ * - Fixed Back Button Logic
  */
 
 // --- DEFAULT DATA (Factory Settings) ---
@@ -226,7 +227,7 @@ const StorageManager = {
 // --- INITIALIZATION ---
 window.onload = () => {
     StorageManager.initDB();
-    renderWorkoutMenu(); // Dynamic Rendering of Main Menu
+    renderWorkoutMenu();
 };
 
 const variationMap = {
@@ -288,15 +289,39 @@ function handleBackClick() {
 
     const currentScreen = state.historyStack[state.historyStack.length - 1];
 
-    if (currentScreen === 'ui-main' && state.setIdx > 0) {
-        state.log.pop();
-        state.setIdx--;
-        state.lastLoggedSet = state.log.length > 0 ? state.log[state.log.length - 1] : null;
-        document.getElementById('action-panel').style.display = 'none';
-        document.getElementById('btn-submit-set').style.display = 'block';
-        initPickers();
+    // --- REFINED LOGIC START ---
+
+    // Case 1: Active Workout Screen (ui-main)
+    if (currentScreen === 'ui-main') {
+        if (state.setIdx > 0) {
+            // Undo Logic (Delete Last Set)
+            deleteLastSet();
+            return;
+        } else {
+            // Cancel Exercise Logic (Back to Confirmation)
+            state.setIdx = 0;
+            stopRestTimer();
+            // Go back to the confirm screen of the current exercise
+            state.historyStack.pop(); // pop ui-main
+            navigate('ui-confirm');
+            return;
+        }
+    }
+
+    // Case 2: Confirmation Screen (ui-confirm)
+    if (currentScreen === 'ui-confirm') {
+        if (state.log.length > 0 || state.completedExInSession.length > 0) {
+            // Workout is in progress
+            if(!confirm("האם לצאת מהאימון?")) return;
+        }
+        // If we go back from confirm, we likely want to go to the list or type selection
+        state.historyStack.pop(); 
+        const prev = state.historyStack[state.historyStack.length - 1];
+        navigate(prev); 
         return;
     }
+
+    // --- REFINED LOGIC END ---
 
     // Special cases for Manager
     if (currentScreen === 'ui-workout-manager') { state.historyStack.pop(); navigate('ui-settings'); return; }
@@ -313,6 +338,7 @@ function handleBackClick() {
     if (currentScreen === 'ui-swap-list') { state.historyStack.pop(); navigate('ui-confirm'); return; }
     if (currentScreen === 'ui-settings') { state.historyStack.pop(); navigate('ui-week'); return; }
 
+    // Standard Stack Pop
     state.historyStack.pop();
     const prevScreen = state.historyStack[state.historyStack.length - 1];
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -663,23 +689,47 @@ function showConfirmScreen(forceExName = null) {
         swapBtn.style.display = 'none';
     }
 
-    // Render History Card
+    // Render History Card (Clean UI)
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
     
     const history = getLastPerformance(exName);
     if (history) {
-        const historyHtml = `
-            <div class="glass-card compact" style="width:100%; box-sizing:border-box;">
-                <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
-                    ביצוע אחרון: ${history.date}
+        let historyListHtml = "";
+        
+        // Parse history strings to display cleanly
+        // Expected format: "60kg x 10 (RIR 2)" or similar
+        history.sets.forEach((setStr, idx) => {
+            const parts = setStr.split('x');
+            const w = parts[0] ? parts[0].trim() : "";
+            let r = "";
+            let extra = "";
+            
+            if(parts[1]) {
+                const sub = parts[1].split('(');
+                r = sub[0].trim() + " reps";
+                if(sub[1]) extra = "(" + sub[1];
+            }
+
+            historyListHtml += `
+            <div class="history-item">
+                <span style="color:var(--text-dim); font-size:0.9em;">סט ${idx + 1}</span>
+                <span style="font-weight:600; color:white;">${w}</span>
+                <span style="font-weight:600; color:white;">${r}</span>
+            </div>`;
+        });
+
+        const historyCard = `
+            <div class="glass-card compact" style="width:100%; box-sizing:border-box; padding: 15px;">
+                <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px; text-align:right;">
+                    📅 ביצוע אחרון: ${history.date}
                 </div>
                 <div class="history-list">
-                    ${history.sets.map(s => `<div class="history-item">${s}</div>`).join('')}
+                    ${historyListHtml}
                 </div>
             </div>
         `;
-        historyContainer.innerHTML = historyHtml;
+        historyContainer.innerHTML = historyCard;
     }
 
     navigate('ui-confirm');
@@ -899,6 +949,13 @@ function nextStep() {
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;
         stopRestTimer();
         document.getElementById('timer-area').style.visibility = 'hidden';
+    }
+}
+
+function skipCurrentExercise() {
+    if(confirm("לדלג על תרגיל זה ולעבור לבא?")) {
+        state.log.push({ skip: true, exName: state.currentExName });
+        finishCurrentExercise();
     }
 }
 
