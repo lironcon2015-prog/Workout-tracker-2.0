@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 11.2.5</title>
+    <title>GymPro Elite 12.0.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
@@ -22,6 +22,23 @@
         </div>
     </div>
 
+    <!-- Edit Set Modal -->
+    <div id="edit-set-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>עריכת סט</h3>
+            <div class="input-grid" style="margin-bottom: 15px;">
+                <div class="glass-card compact"><label>Weight</label><input type="number" id="edit-weight" class="minimal-input" style="margin:0;"></div>
+                <div class="glass-card compact"><label>Reps</label><input type="number" id="edit-reps" class="minimal-input" style="margin:0;"></div>
+                <div class="glass-card compact"><label>RIR</label><input type="number" id="edit-rir" class="minimal-input" style="margin:0;"></div>
+            </div>
+            <input type="text" id="edit-note" class="minimal-input" placeholder="הערה...">
+            
+            <button class="btn-main primary-gradient" onclick="saveSetEdit()">שמור שינויים</button>
+            <button id="btn-delete-last-set" class="btn-text" style="color: #ff453a; display: none;" onclick="deleteLastSet()">מחק סט אחרון (Undo)</button>
+            <button class="btn-text" onclick="closeEditModal()">ביטול</button>
+        </div>
+    </div>
+
     <!-- Bottom Sheet (Drawer) -->
     <div id="sheet-overlay" class="bottom-sheet-overlay" onclick="closeDayDrawer()"></div>
     <div id="sheet-modal" class="bottom-sheet">
@@ -35,7 +52,10 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </button>
             <div class="brand-logo">GYMPRO <span>ELITE</span></div>
-            <div class="version-tag">V 11.2.5</div>
+            <!-- Settings Button -->
+            <button class="settings-btn" onclick="openSettings()">
+                ⚙️
+            </button>
         </header>
 
         <main class="content-area">
@@ -61,6 +81,17 @@
                 </button>
             </div>
 
+            <!-- SETTINGS SCREEN -->
+            <div id="ui-settings" class="screen">
+                <h2 class="section-title">הגדרות וניהול</h2>
+                <div class="glass-card">
+                    <h3 style="margin-top:0">ניהול נתונים</h3>
+                    <p style="color:var(--text-dim); font-size:0.9em;">גרסה V12.0.0 - Dynamic DB</p>
+                    <button class="btn-text" style="color: #ff453a; border: 1px solid #ff453a; border-radius: 12px;" onclick="resetToFactorySettings()">⚠️ איפוס להגדרות יצרן</button>
+                </div>
+                <p class="sub-text" style="text-align:center;">עורך תרגילים ואימונים יתווסף כאן בקרוב.</p>
+            </div>
+
             <div id="ui-workout-type" class="screen">
                 <div class="hero-section"><h2>בחר מסלול</h2></div>
                 <div class="vertical-stack">
@@ -84,6 +115,8 @@
                     <button class="menu-card" onclick="showExerciseList('רגליים')">רגליים</button>
                     <button class="menu-card" onclick="showExerciseList('חזה')">חזה</button>
                     <button class="menu-card" onclick="showExerciseList('גב')">גב</button>
+                    <button class="menu-card" onclick="showExerciseList('ידיים')">ידיים</button>
+                    <button class="menu-card" style="border-color: var(--type-c);" onclick="showExerciseList('קליסטניקס')">קליסטניקס</button>
                 </div>
                 
                 <button id="btn-finish-extra" class="finish-main-btn" onclick="finishExtraPhase()">סיום הוספת תרגילים</button>
@@ -138,17 +171,23 @@
                         </button>
                     </div>
 
+                    <!-- History Card -->
+                    <div id="history-container" style="width: 100%; margin-top: 30px;"></div>
+
                 </div>
             </div>
 
             <div id="ui-main" class="screen">
                 <div class="exercise-header">
-                    <div class="badge-row">
+                    <!-- Session Log Button -->
+                    <button onclick="openSessionLog()" style="position: absolute; left: 0; background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); padding: 5px 10px; font-size: 1.2em; cursor: pointer;">📋</button>
+                    
+                    <div class="badge-row" style="margin-top: 5px;">
                         <span id="set-counter" class="ios-badge">SET 1/3</span>
                         <button id="btn-warmup" class="warmup-badge" onclick="calcWarmup()">🔥 חימום</button>
                         <div id="unilateral-note" class="uni-badge">UNILATERAL</div>
                     </div>
-                    <h2 id="ex-display-name"></h2>
+                    <h2 id="ex-display-name" style="margin-top: 15px;"></h2>
                     <div id="last-set-info" class="history-pill"></div>
                 </div>
 
@@ -162,6 +201,15 @@
 
                 <button id="btn-submit-set" class="btn-main primary-gradient pulse" onclick="nextStep()">סיום סט</button>
 
+                <!-- New Action Panel (Inline Extra/Finish) -->
+                <div id="action-panel" class="action-panel" style="display: none;">
+                    <p id="next-ex-preview" class="passive-preview"></p>
+                    <div class="vertical-stack">
+                        <button class="btn-main primary-gradient" onclick="finishCurrentExercise()">המשך לתרגיל הבא</button>
+                        <button class="btn-text secondary-action" onclick="addExtraSet()">+ סט נוסף</button>
+                    </div>
+                </div>
+
                 <div id="timer-area" class="timer-section">
                     <div class="timer-wrap">
                         <svg class="timer-svg" viewBox="0 0 100 100">
@@ -169,17 +217,6 @@
                             <circle id="timer-progress" class="timer-bar" cx="50" cy="50" r="45"></circle>
                         </svg>
                         <div id="rest-timer" class="timer-text">00:00</div>
-                    </div>
-                    <button class="btn-finish-ex" onclick="handleExtra(false)">דלג לתרגיל הבא</button>
-                </div>
-            </div>
-
-            <div id="ui-extra" class="screen flex-center">
-                <div class="glass-card bonus-card">
-                    <h3>התרגיל הושלם!</h3>
-                    <div class="vertical-stack">
-                        <button class="btn-main success-gradient" onclick="handleExtra(true)">+ סט בונוס</button>
-                        <button class="btn-main primary-gradient" onclick="handleExtra(false)">המשך</button>
                     </div>
                 </div>
             </div>
