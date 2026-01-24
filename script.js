@@ -1481,4 +1481,3 @@ function deleteLastSet() {
         initPickers(); 
     }
 }
-```
