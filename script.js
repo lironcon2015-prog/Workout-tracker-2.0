@@ -4,6 +4,7 @@
  * - RIR in History UI
  * - Refined Skip Button Logic/UI
  * - Home Screen Polish
+ * - Fix: Completed exercises hidden in Freestyle
  */
 
 // --- DEFAULT DATA (Factory Settings) ---
