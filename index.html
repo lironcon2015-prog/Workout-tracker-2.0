@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 12.0.0</title>
+    <title>GymPro Elite 12.1.0</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
@@ -81,15 +81,70 @@
                 </button>
             </div>
 
-            <!-- SETTINGS SCREEN -->
+            <!-- SETTINGS MAIN SCREEN -->
             <div id="ui-settings" class="screen">
                 <h2 class="section-title">הגדרות וניהול</h2>
-                <div class="glass-card">
-                    <h3 style="margin-top:0">ניהול נתונים</h3>
-                    <p style="color:var(--text-dim); font-size:0.9em;">גרסה V12.0.0 - Dynamic DB</p>
-                    <button class="btn-text" style="color: #ff453a; border: 1px solid #ff453a; border-radius: 12px;" onclick="resetToFactorySettings()">⚠️ איפוס להגדרות יצרן</button>
+                
+                <div class="vertical-stack">
+                    <button class="menu-card tall" onclick="openExerciseManager()">
+                        <h3>🏋️ ניהול תרגילים</h3>
+                        <p>הוספה, עריכה ומחיקה של תרגילים מהמאגר</p>
+                    </button>
+                    
+                    <button class="menu-card tall" style="opacity: 0.5; cursor: not-allowed;">
+                        <h3>📋 עריכת אימונים</h3>
+                        <p>בקרוב: בניית תוכניות A/B/C מותאמות אישית</p>
+                    </button>
                 </div>
-                <p class="sub-text" style="text-align:center;">עורך תרגילים ואימונים יתווסף כאן בקרוב.</p>
+
+                <div class="glass-card" style="margin-top: 30px;">
+                    <h3 style="margin-top:0; font-size: 1em;">אזור מסוכן</h3>
+                    <p style="color:var(--text-dim); font-size:0.8em; margin-bottom: 15px;">איפוס נתונים יחזיר את המאגר לברירת המחדל. ההיסטוריה תישמר.</p>
+                    <button class="btn-text" style="color: #ff453a; border: 1px solid #ff453a; border-radius: 12px; padding: 10px;" onclick="resetToFactorySettings()">⚠️ איפוס להגדרות יצרן</button>
+                </div>
+            </div>
+
+            <!-- SETTINGS: EXERCISE MANAGER -->
+            <div id="ui-settings-exercises" class="screen">
+                <h2 class="section-title">מאגר תרגילים</h2>
+                <input type="text" id="ex-search" class="minimal-input" placeholder="חפש תרגיל..." oninput="filterExerciseManager()">
+                
+                <button class="action-card success-gradient" style="padding: 15px; margin-bottom: 20px;" onclick="createNewExercise()">
+                    <div class="card-icon">＋</div>
+                    <div class="card-text">יצירת תרגיל חדש</div>
+                </button>
+
+                <div id="manager-ex-list" class="vertical-stack"></div>
+            </div>
+
+            <!-- SETTINGS: EXERCISE EDITOR -->
+            <div id="ui-settings-edit-ex" class="screen">
+                <h2 id="editor-title" class="section-title">עריכת תרגיל</h2>
+                
+                <div class="glass-card">
+                    <label class="input-label">שם התרגיל (אנגלית)</label>
+                    <input type="text" id="editor-name" class="minimal-input" placeholder="לדוגמה: Bench Press">
+                </div>
+
+                <div class="glass-card">
+                    <label class="input-label">קבוצות שריר (Tags)</label>
+                    <div id="editor-tags" class="tags-container">
+                        <!-- Generated via JS -->
+                    </div>
+                </div>
+
+                <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <label class="input-label" style="margin:0;">משקל גוף? (Bodyweight)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="editor-isbw">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <div class="action-grid" style="margin-top: 20px;">
+                    <button class="btn-main primary-gradient" onclick="saveExerciseChanges()">שמור שינויים</button>
+                    <button id="btn-delete-ex" class="btn-text" style="color: #ff453a;" onclick="deleteExercise()">מחק תרגיל</button>
+                </div>
             </div>
 
             <div id="ui-workout-type" class="screen">
@@ -124,6 +179,14 @@
 
             <div id="ui-variation" class="screen">
                 <h2 id="variation-title" class="section-title">בחר תרגיל</h2>
+                
+                <!-- Arms Filter (Hidden by default) -->
+                <div id="arms-filter-container" class="segmented-control" style="display: none; margin-bottom: 15px;">
+                    <button class="segment-btn active" onclick="filterArms('all', this)">הכל</button>
+                    <button class="segment-btn" onclick="filterArms('biceps', this)">קדמית</button>
+                    <button class="segment-btn" onclick="filterArms('triceps', this)">אחורית</button>
+                </div>
+
                 <div id="variation-options" class="vertical-stack"></div>
                 <button class="btn-text" onclick="handleBackClick()">חזור</button>
             </div>
