@@ -38,6 +38,8 @@ body {
 .back-btn { background: none; border: none; color: var(--accent); padding: 8px; visibility: hidden; cursor: pointer; }
 .brand-logo { font-weight: 800; font-size: 1.2em; letter-spacing: -0.5px; }
 .brand-logo span { color: var(--accent); }
+.settings-btn { background: none; border: none; font-size: 1.2em; cursor: pointer; padding: 8px; }
+
 .version-tag { font-size: 0.7em; color: var(--text-dim); background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px; }
 
 /* Screens & Animation */
@@ -208,7 +210,6 @@ body {
     stroke-dasharray: 283; stroke-dashoffset: 283; transition: 1s linear;
 }
 .timer-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2.2em; font-weight: 300; font-variant-numeric: tabular-nums; }
-.btn-finish-ex { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 8px 16px; border-radius: 20px; font-size: 0.8em; }
 
 /* Badges & Summary */
 .history-pill { 
@@ -233,7 +234,6 @@ body {
     border: 1px solid var(--border); color: #d1d1d6; line-height: 1.5;
 }
 .finish-main-btn { background: #3a3a3c; color: white; padding: 15px; border-radius: var(--ios-radius); border: none; width: 100%; margin-top: 20px; font-weight: 600; }
-.bonus-card { width: 100%; text-align: center; }
 
 /* Modal Styles */
 .modal-overlay {
@@ -253,3 +253,47 @@ body {
     font-size: 0.95em;
 }
 .warmup-row:last-child { border-bottom: none; }
+
+/* Inline Action Panel */
+.action-panel {
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.passive-preview {
+    color: var(--text-dim);
+    font-size: 0.8em;
+    text-align: center;
+    margin-bottom: 15px;
+}
+.secondary-action {
+    border: 1px solid var(--border);
+    border-radius: var(--ios-radius);
+    color: var(--text);
+    padding: 15px;
+}
+
+/* History Card */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.history-item {
+    background: rgba(255,255,255,0.05);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    color: #d1d1d6;
+    direction: ltr; /* Force Numbers to be LTR */
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+    border-right: 3px solid var(--accent); /* Visual indicator */
+}
