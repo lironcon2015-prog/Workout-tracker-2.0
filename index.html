@@ -231,10 +231,7 @@
             <!-- SWAP SCREEN (Split View) -->
             <div id="ui-swap-list" class="screen">
                 <h2 class="section-title">אפשרויות החלפה</h2>
-                
-                <!-- Dynamic Content Here -->
                 <div id="swap-container" class="vertical-stack"></div>
-
                 <button class="btn-text" onclick="handleBackClick()">ביטול</button>
             </div>
 
@@ -247,36 +244,34 @@
                 <button class="btn-main primary-gradient" onclick="save1RM()">צור אימון</button>
             </div>
 
-            <!-- CONFIRM SCREEN -->
-            <div id="ui-confirm" class="screen flex-center">
-                <div class="confirm-box">
+            <!-- CONFIRM SCREEN (Redesigned) -->
+            <div id="ui-confirm" class="screen">
+                <div class="confirm-fixed-top">
                     <p>התרגיל הבא:</p>
                     <h2 id="confirm-ex-name"></h2>
                     <div id="confirm-ex-config" class="sub-text" style="margin-top: -10px; margin-bottom: 20px; font-size: 0.8em; color: var(--accent);"></div>
                     
                     <button class="btn-main primary-gradient" onclick="confirmExercise(true)">התחל אימון</button>
                     
-                    <!-- CONTROL GRID (Clean Text) -->
-                    <div class="action-grid">
-                        <button class="control-btn" onclick="confirmExercise(false)">
+                    <!-- NEW CONTROL GRID (2 Buttons: Swap & Skip) -->
+                    <div class="secondary-buttons-grid">
+                        <!-- Right (Col 1 in Grid RTL) -->
+                        <button class="control-btn passive-action" onclick="confirmExercise(false)">
                             <span>דלג</span>
                         </button>
                         
-                        <!-- Swap kept as icon per request -->
-                        <button id="btn-swap-confirm" class="control-btn accent-border" onclick="openSwapMenu()">
-                            <div class="icon">⇄</div>
+                        <!-- Left (Col 2 in Grid RTL) -->
+                        <button id="btn-swap-confirm" class="control-btn outline-action" onclick="openSwapMenu()">
                             <span>החלף</span>
                         </button>
-                        
-                        <button id="btn-interruption" class="control-btn" onclick="interruptWorkout()">
-                            <span>הוסף</span>
-                        </button>
                     </div>
-
-                    <!-- History Card -->
-                    <div id="history-container" style="width: 100%; margin-top: 30px;"></div>
-
                 </div>
+
+                <!-- History Card (Scrollable below) -->
+                <div id="history-container" style="width: 100%; margin-top: 20px;"></div>
+                
+                <!-- Hidden button for logic compatibility, functionality removed from UI -->
+                <button id="btn-interruption" style="display: none;"></button>
             </div>
 
             <!-- CLUSTER REST SCREEN -->
