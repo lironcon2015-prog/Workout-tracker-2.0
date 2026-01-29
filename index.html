@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 12.5.0</title>
+    <title>GymPro Elite 12.5.1</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
@@ -96,7 +96,7 @@
                     <div class="card-text center-text">ארכיון וגיבוי</div>
                 </button>
 
-                <div class="version-footer">GymPro Elite v12.5.0</div>
+                <div class="version-footer">GymPro Elite v12.5.1</div>
             </div>
 
             <!-- SETTINGS SCREEN -->
@@ -110,7 +110,7 @@
 
                 <div class="glass-card">
                     <h3 style="margin-top:0">ניהול נתונים</h3>
-                    <p style="color:var(--text-dim); font-size:0.9em;">גרסה V12.5.0</p>
+                    <p style="color:var(--text-dim); font-size:0.9em;">גרסה V12.5.1</p>
                     
                     <button class="btn-text" style="color: #ff453a; border: 1px solid #ff453a; border-radius: 12px; margin-bottom: 20px;" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     
@@ -253,25 +253,27 @@
                     
                     <button class="btn-main primary-gradient" onclick="confirmExercise(true)">התחל אימון</button>
                     
-                    <!-- NEW CONTROL GRID (2 Buttons: Swap & Skip) -->
+                    <!-- NEW CONTROL GRID (3 Buttons: Skip, Swap, Add) -->
                     <div class="secondary-buttons-grid">
                         <!-- Right (Col 1 in Grid RTL) -->
                         <button class="control-btn passive-action" onclick="confirmExercise(false)">
                             <span>דלג</span>
                         </button>
                         
-                        <!-- Left (Col 2 in Grid RTL) -->
+                        <!-- Center (Col 2 in Grid RTL) -->
                         <button id="btn-swap-confirm" class="control-btn outline-action" onclick="openSwapMenu()">
                             <span>החלף</span>
+                        </button>
+
+                        <!-- Left (Col 3 in Grid RTL) -->
+                        <button id="btn-add-exercise" class="control-btn outline-action" onclick="interruptWorkout()">
+                            <span>הוסף</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- History Card (Scrollable below) -->
                 <div id="history-container" style="width: 100%; margin-top: 20px;"></div>
-                
-                <!-- Hidden button for logic compatibility, functionality removed from UI -->
-                <button id="btn-interruption" style="display: none;"></button>
             </div>
 
             <!-- CLUSTER REST SCREEN -->
@@ -293,14 +295,14 @@
                         <div id="cluster-next-list" style="font-size: 0.9em; color: white;"></div>
                     </div>
 
-                    <button class="btn-main primary-gradient" onclick="startNextRound()">התחל סבב הבא</button>
+                    <button id="btn-cluster-main" class="btn-main primary-gradient" onclick="startNextRound()">התחל סבב הבא</button>
                     
                     <!-- Option for Extra Round (Visible only on last round) -->
                     <button id="btn-extra-round" class="btn-text secondary-action" style="display: none; margin-top: 15px;" onclick="addExtraRound()">
                         + בצע סבב נוסף
                     </button>
                     
-                    <button class="btn-text" style="color: #ff453a; margin-top: 10px;" onclick="finishCluster()">סיים סבב זה והמשך</button>
+                    <button id="btn-cluster-skip-text" class="btn-text" style="color: #ff453a; margin-top: 10px;" onclick="finishCluster()">סיים סבב זה והמשך</button>
                 </div>
             </div>
 
