@@ -1928,4 +1928,3 @@ function calcWarmup() {
 
 function closeWarmup() { document.getElementById('warmup-modal').style.display = 'none'; }
 function markWarmupDone() { state.log.push({ exName: state.currentExName, isWarmup: true }); closeWarmup(); }
-```
