@@ -1,8 +1,9 @@
 /**
- * GYMPRO ELITE V12.5.0
- * - Feature: Clusters/Circuits (Instant Flow, Queue UI, Round Entry).
- * - Fixes: 1RM logic priority, Next Exercise Screen Layout (Grid), Timer removal on standard flow.
- * - Fix 12.5.1: Fixed Cluster entry navigation bug, Updated Confirm Screen Layout (Fixed Top), Immediate Cluster Transition.
+ * GYMPRO ELITE V12.5.1
+ * - Feature: Restored "Add" button logic in Confirm Screen (Interruption).
+ * - UI: Updated Confirm Screen Layout (Fixed Top, 3-Col Grid).
+ * - Logic: Improved Cluster Finish Flow (Main button becomes "Finish").
+ * - Data: Added "Arnold" and "Raises" to Unilateral detection.
  */
 
 // --- DEFAULT DATA (Factory Settings) ---
@@ -185,7 +186,7 @@ let managerState = {
 };
 
 const unilateralKeywords = [
-    "Dumbbell", "Cable Lateral", "Single", "Concentration", "Hammer", "Pistol", "Walking Lunges", "Bulgarian", "Kickback", "One Arm"
+    "Dumbbell", "Cable Lateral", "Single", "Concentration", "Hammer", "Pistol", "Walking Lunges", "Bulgarian", "Kickback", "One Arm", "Arnold", "Raises"
 ];
 
 let audioContext;
@@ -297,7 +298,7 @@ const StorageManager = {
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.5.0',
+            version: '12.5.1',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES)
@@ -953,10 +954,14 @@ function showConfirmScreen(forceExName = null) {
 
     // New button logic - specific hidden state
     const swapBtn = document.getElementById('btn-swap-confirm');
+    const addBtn = document.getElementById('btn-add-exercise');
+    
     if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
         swapBtn.style.visibility = 'visible';
+        addBtn.style.visibility = 'visible'; // Show Add button in normal flow
     } else {
         swapBtn.style.visibility = 'hidden'; // Keep layout but hide
+        addBtn.style.visibility = 'hidden'; 
     }
 
     // --- HISTORY UI (NEW GRID SYSTEM) ---
@@ -1352,16 +1357,30 @@ function finishCurrentExercise() {
 function handleClusterFlow() {
     // If we are here, it means we finished the last exercise of the round (via nextStep branching)
     navigate('ui-cluster-rest');
+    
+    const btnMain = document.getElementById('btn-cluster-main');
+    const btnSkip = document.getElementById('btn-cluster-skip-text');
         
     if (state.clusterRound < state.activeCluster.rounds) {
         document.getElementById('cluster-status-text').innerText = `סיום סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
         document.getElementById('btn-extra-round').style.display = 'none';
+        
+        // Normal Flow Buttons
+        btnMain.innerText = "התחל סבב הבא";
+        btnMain.onclick = startNextRound;
+        btnSkip.style.display = 'block';
+        
         resetAndStartTimer(state.activeCluster.clusterRest);
     } else {
         document.getElementById('cluster-status-text').innerText = `הסבבים הושלמו (${state.activeCluster.rounds})`;
         document.getElementById('btn-extra-round').style.display = 'block';
         stopRestTimer();
         document.getElementById('cluster-timer-text').innerText = "✓";
+        
+        // Finish Flow Buttons
+        btnMain.innerText = "סיום";
+        btnMain.onclick = finishCluster;
+        btnSkip.style.display = 'none'; // Hide red button
     }
     
     const listDiv = document.getElementById('cluster-next-list');
