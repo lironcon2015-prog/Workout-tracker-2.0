@@ -214,12 +214,13 @@ body {
 
 /* CONFIRM SCREEN REDESIGN */
 #ui-confirm {
-    justify-content: flex-start; /* Was flex-center, now fixed top */
+    justify-content: flex-start; /* Fixed top position */
 }
 
 .confirm-fixed-top {
     width: 100%;
-    margin-top: 20vh; /* Fixed vertical position */
+    margin-top: 0; /* Remove 20vh */
+    padding-top: 10px; /* Standard spacing */
     text-align: center;
     flex-shrink: 0;
 }
@@ -229,7 +230,7 @@ body {
 
 .secondary-buttons-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* 2 Columns */
+    grid-template-columns: 1fr 1fr 1fr; /* 3 Columns now */
     gap: 12px;
     margin-top: 15px;
     width: 100%;
