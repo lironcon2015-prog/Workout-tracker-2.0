@@ -2,6 +2,7 @@
  * GYMPRO ELITE V12.5.0
  * - Feature: Clusters/Circuits (Instant Flow, Queue UI, Round Entry).
  * - Fixes: 1RM logic priority, Next Exercise Screen Layout (Grid), Timer removal on standard flow.
+ * - Fix 12.5.1: Fixed Cluster entry navigation bug, Updated Confirm Screen Layout (Fixed Top), Immediate Cluster Transition.
  */
 
 // --- DEFAULT DATA (Factory Settings) ---
@@ -900,14 +901,16 @@ function showConfirmScreen(forceExName = null) {
         historyContainer.innerHTML = listHtml;
         
         // Hide standard buttons, we only need Start
-        document.querySelector('.action-grid').style.display = 'none';
+        document.querySelector('.secondary-buttons-grid').style.display = 'none';
         
-        // Ensure buttons are reset if we return later (though flow doesn't really return here)
+        // FIX: Navigation logic missing in previous version causing broken state
+        navigate('ui-confirm');
+        
         return;
     }
 
     // --- STANDARD EXERCISE LOGIC (Or triggered manually inside cluster) ---
-    document.querySelector('.action-grid').style.display = 'grid'; // Restore buttons
+    document.querySelector('.secondary-buttons-grid').style.display = 'grid'; // Restore buttons
 
     let exName = forceExName;
     let currentPlanItem = null;
@@ -948,14 +951,12 @@ function showConfirmScreen(forceExName = null) {
         configDiv.style.display = 'none';
     }
 
-    const intBtn = document.getElementById('btn-interruption');
-    if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'flex' : 'none';
-    
+    // New button logic - specific hidden state
     const swapBtn = document.getElementById('btn-swap-confirm');
     if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
-        swapBtn.style.display = 'flex';
+        swapBtn.style.visibility = 'visible';
     } else {
-        swapBtn.style.display = 'none';
+        swapBtn.style.visibility = 'hidden'; // Keep layout but hide
     }
 
     // --- HISTORY UI (NEW GRID SYSTEM) ---
@@ -968,12 +969,8 @@ function showConfirmScreen(forceExName = null) {
         let rowsHtml = "";
         history.sets.forEach((setStr, idx) => {
             // Parse set string: "80kg x 8 (RIR 2) | Note..."
-            // We want nice columns: Set | Weight | Reps | RIR
-            // Regex to extract data (simplified)
-            // Assuming format: "80kg x 8 (RIR 2)"
             let weight = "-", reps = "-", rir = "-";
             
-            // Basic parsing logic
             try {
                 const parts = setStr.split('x');
                 if(parts.length > 1) {
@@ -1297,9 +1294,10 @@ function nextStep() {
             
             return; // EXIT FUNCTION, Stay in ui-main
         } else {
-            // End of round exercises, proceed to standard finish (which leads to Rest Screen)
-             // Stop timer in ui-main, handleClusterFlow will start the Round Rest timer
-             stopRestTimer();
+            // End of round exercises.
+            // FIX: If this is the last exercise of the round, finish immediately! No action panel.
+             finishCurrentExercise();
+             return;
         }
     }
 
@@ -1316,15 +1314,7 @@ function nextStep() {
         
         document.getElementById('action-panel').style.display = 'block';
         
-        let nextName = "סיום";
-        if (state.clusterMode) {
-             // We only get here if round finished
-             if (state.clusterRound < state.activeCluster.rounds) nextName = "מנוחה (סוף סבב)";
-             else nextName = "סיום סבבים";
-        } else {
-            nextName = getNextExerciseName();
-        }
-        
+        let nextName = getNextExerciseName();
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;
         
         // --- FIX: NO TIMER IN STANDARD ACTION PANEL ---
