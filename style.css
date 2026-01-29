@@ -212,22 +212,50 @@ body {
 }
 .btn-text { background: none; border: none; color: var(--text-dim); padding: 15px; width: 100%; margin-top: 5px; font-size: 0.9em; }
 
-/* Control Grid System - Updated for Clean Text */
-.action-grid {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
-    margin-top: 25px; width: 100%;
+/* CONFIRM SCREEN REDESIGN */
+#ui-confirm {
+    justify-content: flex-start; /* Was flex-center, now fixed top */
 }
+
+.confirm-fixed-top {
+    width: 100%;
+    margin-top: 20vh; /* Fixed vertical position */
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.confirm-fixed-top h2 { font-size: 1.8em; margin: 10px 0 10px; }
+.sub-text { color: var(--text-dim); font-size: 0.9em; margin-bottom: 30px; }
+
+.secondary-buttons-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 Columns */
+    gap: 12px;
+    margin-top: 15px;
+    width: 100%;
+}
+
 .control-btn {
-    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
-    border-radius: 12px; padding: 15px 5px;
+    border-radius: 12px; 
+    padding: 15px 5px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 6px; color: var(--text-dim); cursor: pointer;
-    transition: all 0.2s; height: 60px;
+    font-size: 0.9em; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    height: 50px;
 }
-.control-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
-.control-btn .icon { font-size: 1.2em; line-height: 1; }
-.control-btn span { font-size: 0.85em; font-weight: 600; }
-.control-btn.accent-border { border-color: rgba(10, 132, 255, 0.4); color: var(--text); background: rgba(10, 132, 255, 0.1); }
+
+.passive-action {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: var(--text-dim);
+}
+
+.outline-action {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--text);
+}
 
 .primary-gradient { background: var(--accent-gradient); }
 .success-gradient { background: var(--success-gradient); }
@@ -235,8 +263,6 @@ body {
 
 .flex-center { justify-content: center; align-items: center; }
 .confirm-box { text-align: center; width: 100%; }
-.confirm-box h2 { font-size: 1.8em; margin: 10px 0 10px; }
-.sub-text { color: var(--text-dim); font-size: 0.9em; margin-bottom: 30px; }
 
 /* Timer */
 .timer-section { display: flex; flex-direction: column; align-items: center; margin-top: 25px; visibility: hidden; }
@@ -318,7 +344,6 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--ios-radius);
     padding: 15px;
-    margin-top: 20px;
 }
 
 .history-header {
@@ -338,8 +363,7 @@ body {
     flex-direction: column;
     gap: 0;
     width: 100%;
-    max-height: 200px;
-    overflow-y: auto;
+    /* No max-height here, allow page scroll if needed */
 }
 
 .history-row {
