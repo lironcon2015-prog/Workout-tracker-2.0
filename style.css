@@ -311,24 +311,52 @@ body {
     padding: 15px;
 }
 
-/* History - Clean UI */
+/* History - Clean UI GRID SYSTEM (New) */
+.history-card-container {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--ios-radius);
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.history-header {
+    display: grid;
+    grid-template-columns: 0.5fr 1fr 1fr 1fr;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    font-size: 0.8em;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-align: center;
+}
+
 .history-list {
     display: flex;
     flex-direction: column;
+    gap: 0;
     width: 100%;
-    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
-.history-item {
-    display: flex;
-    justify-content: space-between;
+.history-row {
+    display: grid;
+    grid-template-columns: 0.5fr 1fr 1fr 1fr;
     align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    font-size: 0.9em;
-    direction: ltr; /* Keeps formatting consistent */
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.95em;
+    text-align: center;
+    color: white;
 }
-.history-item:last-child { border-bottom: none; }
+.history-row:last-child { border-bottom: none; }
+
+.history-col { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.history-col.set-idx { color: var(--text-dim); font-size: 0.9em; }
+.history-col.rir-note { color: var(--accent); font-size: 0.85em; }
 
 /* Skip Button - Passive & Framed */
 .passive-skip {
@@ -362,6 +390,32 @@ body {
     cursor: pointer;
 }
 
+/* Cluster Queue Styles (New) */
+.cluster-queue-container {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px;
+    margin: 10px 0 20px;
+    text-align: right;
+    border-right: 3px solid var(--type-free);
+}
+.queue-title {
+    font-size: 0.75em;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.queue-item {
+    font-size: 0.9em;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+}
+.queue-item.next {
+    color: white;
+    font-weight: 600;
+}
+
 /* --- WORKOUT MANAGER STYLES --- */
 
 /* Manager List Item */
@@ -373,10 +427,10 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer; /* Upgrade 1: Clickable */
+    cursor: pointer; 
     transition: transform 0.1s;
 }
-.manager-item:active { transform: scale(0.98); } /* Upgrade 1: Feedback */
+.manager-item:active { transform: scale(0.98); } 
 
 .manager-info h3 { margin: 0; font-size: 1.1em; color: white; }
 .manager-info p { margin: 5px 0 0; font-size: 0.8em; color: var(--text-dim); }
@@ -409,11 +463,11 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 45%;
-    cursor: pointer; /* Upgrade 2: Clickable for settings */
+    cursor: pointer; 
 }
 .editor-controls { display: flex; gap: 8px; align-items: center; }
 
-/* Cluster Box Styles (Upgrade 5) */
+/* Cluster Box Styles */
 .cluster-box {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--type-free);
@@ -438,7 +492,7 @@ body {
     padding-left: 5px;
 }
 
-/* Stepper for Timer Modal (Upgrade 2) */
+/* Stepper for Timer Modal */
 .stepper-control {
     display: flex;
     align-items: center;
