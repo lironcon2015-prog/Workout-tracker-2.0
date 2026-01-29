@@ -1,8 +1,7 @@
 /**
  * GYMPRO ELITE V12.5.0
- * - Feature: Clusters/Circuits (Zig-Zag flow, Round Rest, Extra Rounds).
- * - UX: Manager item clicks, Scroll fixes.
- * - Data: New exercises (Y/L Raises), Rest Timer editing per exercise.
+ * - Feature: Clusters/Circuits (Instant Flow, Queue UI, Round Entry).
+ * - Fixes: 1RM logic priority, Next Exercise Screen Layout (Grid), Timer removal on standard flow.
  */
 
 // --- DEFAULT DATA (Factory Settings) ---
@@ -19,7 +18,7 @@ const defaultExercises = [
     { name: "Barbell Shrugs", muscles: ["כתפיים"], sets: [{w: 140, r: 11}, {w: 140, r: 11}, {w: 140, r: 11}], step: 5 },
     { name: "Front Raises", muscles: ["כתפיים"], sets: [{w: 10, r: 12}, {w: 10, r: 12}, {w: 10, r: 12}], step: 1 },
 
-    // UPGRADE 3: NEW EXERCISES
+    // NEW EXERCISES
     { name: "Y Raises", muscles: ["גב", "כתפיים"], sets: [{w: 4, r: 12}, {w: 4, r: 12}, {w: 4, r: 12}], step: 1 },
     { name: "L Raises", muscles: ["גב", "כתפיים"], sets: [{w: 3, r: 12}, {w: 3, r: 12}, {w: 3, r: 12}], step: 1 },
 
@@ -116,29 +115,18 @@ const defaultWorkouts = {
 
 // --- SUBSTITUTION LOGIC ---
 const substituteGroups = [
-    // Chest
     ["Incline Bench Press", "Incline Dumbbell Bench Press"],
     ["Dumbbell Bench Press", "Machine Press"], 
     ["Dumbbell Peck Fly", "Machine Peck Fly", "Cable Fly"],
-    
-    // Back (Pullups)
     ["Weighted Pull Ups", "Pull Ups", "Chin Ups", "Wide Grip Pull Ups", "Lat Pulldown"],
-    // Back (Rows)
     ["Cable Row", "Machine Row", "T-Bar Row", "Single Arm Dumbbell Row", "Bodyweight Rows"],
-    // Back (Isolation)
     ["Straight Arm Pulldown", "Weighted Pull Ups"], 
-
-    // Shoulders
     ["Dumbbell Shoulder Press", "Arnold Press", "Machine Press"],
     ["Lateral Raises", "Cable Lateral Raises"],
     ["Face Pulls", "Rear Delt Fly (Dumbbells)", "Reverse Fly (Machine)"],
-
-    // Legs
     ["Single Leg Curl", "Lying Leg Curl (Double)", "Seated Leg Curl"],
     ["Seated Calf Raise", "Standing Calf Raise"],
     ["Leg Press", "Hack Squat", "Bulgarian Split Squat", "Walking Lunges"],
-
-    // Arms
     ["Dumbbell Bicep Curls", "Barbell Bicep Curls", "Concentration Curls", "Hammer Curls", "Preacher Curls", "Reverse Grip Curl"],
     ["Triceps Pushdown", "Skullcrushers", "Overhead Triceps Extension (Cable)", "Diamond Pushups"]
 ];
@@ -178,11 +166,12 @@ let state = {
     exercises: [],
     workouts: {},
     
-    // UPGRADE 5: Cluster State
+    // Cluster State
     clusterMode: false,
-    activeCluster: null, // { rounds, clusterRest, exercises }
-    clusterIdx: 0, // Current exercise index inside cluster
-    clusterRound: 1 // Current round number
+    activeCluster: null,
+    clusterIdx: 0, 
+    clusterRound: 1,
+    lastClusterRest: 0 // To carry over rest time
 };
 
 let managerState = {
@@ -190,8 +179,8 @@ let managerState = {
     currentName: '',
     exercises: [],
     selectorFilter: 'all',
-    activeClusterRef: null, // Reference to cluster being edited
-    editingTimerEx: null // Reference for timer modal
+    activeClusterRef: null,
+    editingTimerEx: null 
 };
 
 const unilateralKeywords = [
@@ -465,7 +454,7 @@ function renderWorkoutMenu() {
     });
 }
 
-// --- WORKOUT MANAGER SYSTEM (UPGRADE 1: CLICKS) ---
+// --- WORKOUT MANAGER SYSTEM ---
 
 function openWorkoutManager() {
     renderManagerList();
@@ -486,7 +475,7 @@ function renderManagerList() {
         const wo = state.workouts[key];
         const el = document.createElement('div');
         el.className = "manager-item";
-        el.onclick = () => editWorkout(key); // CLICK WHOLE CARD
+        el.onclick = () => editWorkout(key); 
         
         let count = 0;
         wo.forEach(item => {
@@ -549,7 +538,7 @@ function openEditorUI() {
     navigate('ui-workout-editor');
 }
 
-// --- WORKOUT EDITOR & CLUSTER SUPPORT (UPGRADE 5) ---
+// --- WORKOUT EDITOR & CLUSTER SUPPORT ---
 
 function renderEditorList() {
     const list = document.getElementById('editor-list');
@@ -724,7 +713,7 @@ function saveWorkoutChanges() {
     renderManagerList();
 }
 
-// --- REST TIMER EDITING (UPGRADE 2) ---
+// --- REST TIMER EDITING ---
 
 function openRestTimerModal(idx, internalIdx = null) {
     let ex;
@@ -771,7 +760,7 @@ function closeExerciseSettings() {
 // --- SMART EXERCISE SELECTOR ---
 
 function openExerciseSelector() {
-    managerState.activeClusterRef = null; // Adding to root
+    managerState.activeClusterRef = null; 
     prepareSelector();
 }
 
@@ -830,12 +819,11 @@ function renderSelectorList() {
                 name: ex.name,
                 isMain: false,
                 sets: 3,
-                restTime: 90 // Default
+                restTime: 90 
             };
             
             if (managerState.activeClusterRef !== null) {
-                // Add to cluster, use default rest 30s for circuits
-                newExObj.restTime = 30;
+                newExObj.restTime = 30; // Default circuit rest
                 managerState.exercises[managerState.activeClusterRef].exercises.push(newExObj);
             } else {
                 managerState.exercises.push(newExObj);
@@ -863,7 +851,6 @@ function selectWorkout(t) {
 function checkFlow() {
     const workoutList = state.workouts[state.type];
     
-    // Safety check for end of workout
     if (state.exIdx >= workoutList.length) {
         navigate('ui-ask-extra');
         return;
@@ -874,13 +861,13 @@ function checkFlow() {
     // IF CLUSTER
     if (item.type === 'cluster') {
         state.clusterMode = true;
-        state.activeCluster = JSON.parse(JSON.stringify(item)); // Deep copy
+        state.activeCluster = JSON.parse(JSON.stringify(item)); 
         state.clusterIdx = 0;
         state.clusterRound = 1;
+        state.lastClusterRest = 30; // Default init
         
-        // Start first exercise of cluster
-        const firstExName = state.activeCluster.exercises[0].name;
-        showConfirmScreen(firstExName);
+        // Show Cluster Entry Screen (New Requirement)
+        showConfirmScreen();
     } 
     // IF REGULAR
     else {
@@ -888,7 +875,7 @@ function checkFlow() {
         state.activeCluster = null;
         if (isExOrVariationDone(item.name)) {
             state.exIdx++;
-            checkFlow(); // Recursion to skip done
+            checkFlow(); 
         } else {
             showConfirmScreen();
         }
@@ -896,6 +883,32 @@ function checkFlow() {
 }
 
 function showConfirmScreen(forceExName = null) {
+    // --- CLUSTER ENTRY SCREEN LOGIC ---
+    if (state.clusterMode && state.clusterIdx === 0 && !forceExName) {
+        // Render special Cluster Entry screen inside ui-confirm
+        document.getElementById('confirm-ex-name').innerText = "סבב / מעגל (Cluster)";
+        document.getElementById('confirm-ex-config').innerText = `סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
+        document.getElementById('confirm-ex-config').style.display = 'block';
+
+        const historyContainer = document.getElementById('history-container');
+        // List exercises
+        let listHtml = `<div class="vertical-stack" style="text-align:right; margin: 20px 0;">`;
+        state.activeCluster.exercises.forEach((ex, i) => {
+            listHtml += `<div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:12px; margin-bottom:5px;">${i+1}. ${ex.name}</div>`;
+        });
+        listHtml += `</div>`;
+        historyContainer.innerHTML = listHtml;
+        
+        // Hide standard buttons, we only need Start
+        document.querySelector('.action-grid').style.display = 'none';
+        
+        // Ensure buttons are reset if we return later (though flow doesn't really return here)
+        return;
+    }
+
+    // --- STANDARD EXERCISE LOGIC (Or triggered manually inside cluster) ---
+    document.querySelector('.action-grid').style.display = 'grid'; // Restore buttons
+
     let exName = forceExName;
     let currentPlanItem = null;
 
@@ -904,21 +917,13 @@ function showConfirmScreen(forceExName = null) {
         exName = currentPlanItem.name;
     }
     
-    // If in Cluster, get data from cluster
-    if (state.clusterMode && !currentPlanItem) {
-        // currentPlanItem is fake here, we just use name
-    }
-
+    // Logic for loading exercise data...
     const exData = state.exercises.find(e => e.name === exName);
-    if (!exData) {
-        alert("שגיאה: התרגיל לא נמצא במאגר.");
-        return;
-    }
+    if (!exData) { alert("שגיאה: התרגיל לא נמצא במאגר."); return; }
 
     state.currentEx = JSON.parse(JSON.stringify(exData));
     state.currentExName = exData.name;
     
-    // Merge Rest Time from Plan if exists
     if (state.clusterMode) {
         const clusterEx = state.activeCluster.exercises[state.clusterIdx];
         if (clusterEx.restTime) state.currentEx.restTime = clusterEx.restTime;
@@ -927,11 +932,10 @@ function showConfirmScreen(forceExName = null) {
     }
 
     document.getElementById('confirm-ex-name').innerText = exData.name;
-    
     const configDiv = document.getElementById('confirm-ex-config');
     
     if (state.clusterMode) {
-        configDiv.innerHTML = `סבב ${state.clusterRound}/${state.activeCluster.rounds} • תרגיל ${state.clusterIdx + 1}/${state.activeCluster.exercises.length}`;
+        configDiv.innerHTML = `חלק מסבב (${state.clusterRound}/${state.activeCluster.rounds})`;
         configDiv.style.display = 'block';
     } else if (currentPlanItem) {
         if (currentPlanItem.isMain) {
@@ -946,29 +950,65 @@ function showConfirmScreen(forceExName = null) {
 
     const intBtn = document.getElementById('btn-interruption');
     if (intBtn) intBtn.style.display = (state.exIdx > 0) ? 'flex' : 'none';
-    const swapBtn = document.getElementById('btn-swap-confirm');
     
-    // Allow swap in cluster? Yes, but careful.
+    const swapBtn = document.getElementById('btn-swap-confirm');
     if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
         swapBtn.style.display = 'flex';
     } else {
         swapBtn.style.display = 'none';
     }
 
-    // Render History (Same as before)
+    // --- HISTORY UI (NEW GRID SYSTEM) ---
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
+    
     const history = getLastPerformance(exName);
+    
     if (history) {
-        let historyListHtml = "";
+        let rowsHtml = "";
         history.sets.forEach((setStr, idx) => {
-            historyListHtml += `
-            <div class="history-item">
-                <span style="color:var(--text-dim); font-size:0.9em; width:30px;">#${idx + 1}</span>
-                <span style="font-weight:600; color:white; flex:1; text-align:center;">${setStr}</span>
+            // Parse set string: "80kg x 8 (RIR 2) | Note..."
+            // We want nice columns: Set | Weight | Reps | RIR
+            // Regex to extract data (simplified)
+            // Assuming format: "80kg x 8 (RIR 2)"
+            let weight = "-", reps = "-", rir = "-";
+            
+            // Basic parsing logic
+            try {
+                const parts = setStr.split('x');
+                if(parts.length > 1) {
+                    weight = parts[0].replace('kg', '').trim();
+                    const rest = parts[1];
+                    const rirMatch = rest.match(/\(RIR (.*?)\)/);
+                    reps = rest.split('(')[0].trim();
+                    if(rirMatch) rir = rirMatch[1];
+                }
+            } catch(e) {}
+
+            rowsHtml += `
+            <div class="history-row">
+                <div class="history-col set-idx">#${idx + 1}</div>
+                <div class="history-col">${weight}</div>
+                <div class="history-col">${reps}</div>
+                <div class="history-col rir-note">${rir}</div>
             </div>`;
         });
-        historyContainer.innerHTML = `<div class="glass-card compact" style="padding:15px;"><div style="font-size:0.85em; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px; text-align:right;">📅 ביצוע אחרון: ${history.date}</div><div class="history-list">${historyListHtml}</div></div>`;
+
+        const gridHtml = `
+        <div class="history-card-container">
+            <div style="font-size:0.85em; color:var(--text-dim); text-align:right; margin-bottom:10px;">📅 ביצוע אחרון: ${history.date}</div>
+            <div class="history-header">
+                <div>סט</div>
+                <div>משקל</div>
+                <div>חזרות</div>
+                <div>RIR</div>
+            </div>
+            <div class="history-list">
+                ${rowsHtml}
+            </div>
+        </div>
+        `;
+        historyContainer.innerHTML = gridHtml;
     }
 
     navigate('ui-confirm');
@@ -985,10 +1025,28 @@ function getLastPerformance(exName) {
 }
 
 function confirmExercise(doEx) {
+    if (state.clusterMode && state.clusterIdx === 0 && document.getElementById('confirm-ex-name').innerText.includes("Cluster")) {
+        // Clicked Start on Cluster Entry Screen
+        // Start first exercise
+        const firstExName = state.activeCluster.exercises[0].name;
+        // Proceed to setup
+        // Need to set up state.currentEx correctly
+        const exData = state.exercises.find(e => e.name === firstExName);
+        state.currentEx = JSON.parse(JSON.stringify(exData));
+        state.currentExName = exData.name;
+        if(state.activeCluster.exercises[0].restTime) state.currentEx.restTime = state.activeCluster.exercises[0].restTime;
+        
+        // Fall through to startRecording
+        // Set target sets to 1 for flow
+        resizeSets(1);
+        startRecording();
+        return;
+    }
+
     if (!doEx) { 
         state.log.push({ skip: true, exName: state.currentExName }); 
         if(!state.clusterMode) state.completedExInSession.push(state.currentExName); 
-        finishCurrentExercise(); // Will handle logic
+        finishCurrentExercise(); 
         return; 
     }
     
@@ -997,8 +1055,6 @@ function confirmExercise(doEx) {
 
     if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
         if (state.clusterMode) {
-             // In cluster, we usually do 1 set per round. 
-             // We set sets=1 for the current session recording to allow flow
              targetSets = 1;
              isMain = false;
         } else {
@@ -1050,7 +1106,7 @@ function save1RM() {
 
 function startRecording() { 
     state.setIdx = 0; 
-    state.lastLoggedSet = null; 
+    state.lastLoggedSet = null; // Clear last set for new exercise
     document.getElementById('action-panel').style.display = 'none';
     document.getElementById('btn-submit-set').style.display = 'block';
     navigate('ui-main'); 
@@ -1064,6 +1120,30 @@ function isUnilateral(exName) {
 function initPickers() {
     document.getElementById('ex-display-name').innerText = state.currentExName;
     
+    // Inject Cluster Queue if needed
+    const exHeader = document.querySelector('.exercise-header');
+    const existingQueue = document.querySelector('.cluster-queue-container');
+    if (existingQueue) existingQueue.remove();
+
+    if (state.clusterMode) {
+        const queueDiv = document.createElement('div');
+        queueDiv.className = 'cluster-queue-container';
+        let queueHtml = `<div class="queue-title">בהמשך הסבב:</div>`;
+        
+        let foundNext = false;
+        for (let i = state.clusterIdx + 1; i < state.activeCluster.exercises.length; i++) {
+            const exName = state.activeCluster.exercises[i].name;
+            const isNext = !foundNext;
+            queueHtml += `<div class="queue-item ${isNext ? 'next' : ''}">${isNext ? '• הבא: ' : ''}${exName}</div>`;
+            foundNext = true;
+        }
+        if (!foundNext) queueHtml += `<div class="queue-item">--- סוף סבב ---</div>`;
+        
+        queueDiv.innerHTML = queueHtml;
+        // Insert after header
+        exHeader.parentNode.insertBefore(queueDiv, exHeader.nextSibling);
+    }
+
     // Badge Update
     const badge = document.getElementById('set-counter');
     if (state.clusterMode) {
@@ -1087,24 +1167,34 @@ function initPickers() {
     document.getElementById('unilateral-note').style.display = isUnilateral(state.currentExName) ? 'block' : 'none';
     document.getElementById('btn-warmup').style.display = (state.setIdx === 0 && !state.clusterMode && ["Squat", "Deadlift", "Bench", "Overhead"].some(k => state.currentExName.includes(k))) ? 'block' : 'none';
     
-    // Timer visibility
+    // Timer visibility (Hide unless explicitly shown in standard flow, or active in cluster)
     const timerArea = document.getElementById('timer-area');
-    if (state.setIdx > 0 && document.getElementById('action-panel').style.display === 'none') { 
+    // If we just arrived here in Cluster mode with a running timer
+    if (state.clusterMode && state.timerInterval) {
+        timerArea.style.visibility = 'visible';
+    } else if (state.setIdx > 0 && document.getElementById('action-panel').style.display === 'none') { 
         timerArea.style.visibility = 'visible'; 
         resetAndStartTimer(); 
     } else { 
         timerArea.style.visibility = 'hidden'; 
-        stopRestTimer(); 
+        // Do not stop timer if cluster flow is active!
+        if (!state.clusterMode) stopRestTimer(); 
     }
 
     const skipBtn = document.getElementById('btn-skip-exercise');
     skipBtn.style.display = (state.setIdx === 0) ? 'none' : 'block';
 
-    // Weights & Reps
+    // Weights & Reps - FIX 1RM PRIORITY
     const wPick = document.getElementById('weight-picker'); wPick.innerHTML = "";
     const step = state.currentEx.step || 2.5;
     const savedWeight = StorageManager.getLastWeight(state.currentExName);
-    let defaultW = state.lastLoggedSet ? state.lastLoggedSet.w : (state.setIdx === 0 && savedWeight ? savedWeight : (target ? target.w : 0));
+    
+    let defaultW;
+    if (state.currentEx.isCalc) {
+        defaultW = target.w; // Priority to calculated weight
+    } else {
+        defaultW = state.lastLoggedSet ? state.lastLoggedSet.w : (state.setIdx === 0 && savedWeight ? savedWeight : (target ? target.w : 0));
+    }
     
     let minW = Math.max(0, defaultW - 40); 
     let maxW = defaultW + 50;
@@ -1124,7 +1214,7 @@ function initPickers() {
     });
 }
 
-// --- TIMER LOGIC (UPGRADE 2 & 5) ---
+// --- TIMER LOGIC ---
 
 function resetAndStartTimer(customTime = null) {
     stopRestTimer(); state.seconds = 0; state.startTime = Date.now();
@@ -1133,7 +1223,6 @@ function resetAndStartTimer(customTime = null) {
     if (customTime !== null) {
         target = customTime;
     } else {
-        // Check exercise specific rest time
         if (state.currentEx.restTime) {
             target = state.currentEx.restTime;
         } else {
@@ -1143,8 +1232,6 @@ function resetAndStartTimer(customTime = null) {
     
     const circle = document.getElementById('timer-progress'); 
     const text = document.getElementById('rest-timer');
-    
-    // If Cluster Rest screen
     const clusterBar = document.getElementById('cluster-timer-bar');
     const clusterText = document.getElementById('cluster-timer-text');
 
@@ -1179,9 +1266,49 @@ function nextStep() {
     StorageManager.saveWeight(state.currentExName, wVal);
     state.log.push(entry); state.lastLoggedSet = entry;
 
+    // --- CLUSTER FLOW LOGIC (Instant Transition) ---
+    if (state.clusterMode) {
+        // Store current rest time before switching
+        state.lastClusterRest = state.currentEx.restTime || 30;
+
+        // Is there another exercise in this round?
+        if (state.clusterIdx < state.activeCluster.exercises.length - 1) {
+            // YES: Switch immediately
+            state.clusterIdx++;
+            const nextExName = state.activeCluster.exercises[state.clusterIdx].name;
+            const exData = state.exercises.find(e => e.name === nextExName);
+            
+            // Set up next exercise
+            state.currentEx = JSON.parse(JSON.stringify(exData));
+            state.currentExName = exData.name;
+            if(state.activeCluster.exercises[state.clusterIdx].restTime) state.currentEx.restTime = state.activeCluster.exercises[state.clusterIdx].restTime;
+            state.currentEx.sets = [{w:10, r:10}]; // Dummy set structure
+            
+            // Reset state for new exercise input
+            state.setIdx = 0;
+            state.lastLoggedSet = null; // Important: Clear visual history of previous different exercise
+            
+            // Re-render UI
+            initPickers();
+            
+            // Start Timer (using previous exercise rest time)
+            document.getElementById('timer-area').style.visibility = 'visible';
+            resetAndStartTimer(state.lastClusterRest);
+            
+            return; // EXIT FUNCTION, Stay in ui-main
+        } else {
+            // End of round exercises, proceed to standard finish (which leads to Rest Screen)
+             // Stop timer in ui-main, handleClusterFlow will start the Round Rest timer
+             stopRestTimer();
+        }
+    }
+
     if (state.setIdx < state.currentEx.sets.length - 1) { 
         state.setIdx++; 
         initPickers(); 
+        // In-set timer (Regular mode)
+        document.getElementById('timer-area').style.visibility = 'visible'; 
+        resetAndStartTimer();
     } else { 
         haptic('medium'); 
         document.getElementById('btn-submit-set').style.display = 'none';
@@ -1189,29 +1316,22 @@ function nextStep() {
         
         document.getElementById('action-panel').style.display = 'block';
         
-        // PREVIEW LOGIC
         let nextName = "סיום";
         if (state.clusterMode) {
-            // Check if more exercises in cluster
-            if (state.clusterIdx < state.activeCluster.exercises.length - 1) {
-                nextName = state.activeCluster.exercises[state.clusterIdx + 1].name;
-            } else {
-                // End of cluster round
-                if (state.clusterRound < state.activeCluster.rounds) {
-                     nextName = "מנוחה (סוף סבב)";
-                } else {
-                     nextName = "סיום סבבים";
-                }
-            }
+             // We only get here if round finished
+             if (state.clusterRound < state.activeCluster.rounds) nextName = "מנוחה (סוף סבב)";
+             else nextName = "סיום סבבים";
         } else {
             nextName = getNextExerciseName();
         }
         
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;
         
-        // Start rest timer immediately for the next set/exercise
-        document.getElementById('timer-area').style.visibility = 'visible';
-        resetAndStartTimer(); // Will use currentEx.restTime
+        // --- FIX: NO TIMER IN STANDARD ACTION PANEL ---
+        if (!state.clusterMode) {
+            document.getElementById('timer-area').style.visibility = 'hidden';
+            stopRestTimer();
+        }
     }
 }
 
@@ -1239,107 +1359,58 @@ function finishCurrentExercise() {
     }
 }
 
-// --- CLUSTER FLOW HANDLER (UPGRADE 5) ---
-
 function handleClusterFlow() {
-    // 1. Move to next exercise in cluster?
-    if (state.clusterIdx < state.activeCluster.exercises.length - 1) {
-        state.clusterIdx++;
-        const nextExName = state.activeCluster.exercises[state.clusterIdx].name;
-        showConfirmScreen(nextExName);
-    } 
-    // 2. End of round?
-    else {
-        // Are there rounds left?
-        if (state.clusterRound < state.activeCluster.rounds) {
-            openClusterRestScreen();
-        } else {
-            // All rounds done
-            finishCluster();
-        }
-    }
-}
-
-function openClusterRestScreen() {
+    // If we are here, it means we finished the last exercise of the round (via nextStep branching)
     navigate('ui-cluster-rest');
-    document.getElementById('cluster-status-text').innerText = `סיום סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
+        
+    if (state.clusterRound < state.activeCluster.rounds) {
+        document.getElementById('cluster-status-text').innerText = `סיום סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
+        document.getElementById('btn-extra-round').style.display = 'none';
+        resetAndStartTimer(state.activeCluster.clusterRest);
+    } else {
+        document.getElementById('cluster-status-text').innerText = `הסבבים הושלמו (${state.activeCluster.rounds})`;
+        document.getElementById('btn-extra-round').style.display = 'block';
+        stopRestTimer();
+        document.getElementById('cluster-timer-text').innerText = "✓";
+    }
     
-    // Generate list for next round preview
     const listDiv = document.getElementById('cluster-next-list');
     listDiv.innerHTML = state.activeCluster.exercises.map((e,i) => `<div>${i+1}. ${e.name}</div>`).join('');
-    
-    // Show/Hide extra round button
-    const btnExtra = document.getElementById('btn-extra-round');
-    btnExtra.style.display = (state.clusterRound === state.activeCluster.rounds) ? 'block' : 'none'; // Only logic valid if we changed logic, but sticking to flow:
-    // Actually, user might want to add round anytime? No, usually at end.
-    // Let's show it only if it's the last scheduled round, or handled in logic?
-    // Current logic: we are here because rounds < total. So btn hidden.
-    
-    resetAndStartTimer(state.activeCluster.clusterRest);
 }
 
 function startNextRound() {
     state.clusterRound++;
     state.clusterIdx = 0;
     stopRestTimer();
+    
+    // Jump straight to first exercise of next round (similar to Instant Transition)
     const nextExName = state.activeCluster.exercises[0].name;
-    showConfirmScreen(nextExName);
+    const exData = state.exercises.find(e => e.name === nextExName);
+    
+    state.currentEx = JSON.parse(JSON.stringify(exData));
+    state.currentExName = exData.name;
+    if(state.activeCluster.exercises[0].restTime) state.currentEx.restTime = state.activeCluster.exercises[0].restTime;
+    
+    state.currentEx.sets = [{w:10, r:10}];
+    
+    // Manual setup like confirmExercise(true)
+    startRecording();
 }
 
 function addExtraRound() {
     state.activeCluster.rounds++;
-    document.getElementById('cluster-status-text').innerText = `מוסיף סבב נוסף...`;
-    // We are at the end screen? No, the logic for "finishCluster" would have been called.
-    // We need to intercept the finish.
-    // Let's modify finishCluster to ask?
-}
-
-// Special case: When rounds are DONE, we normally go to finishCluster.
-// But we want an option to add round.
-// So, handleClusterFlow -> if rounds done -> show special screen OR confirm screen?
-// Let's direct to Cluster Rest screen even if rounds are done, but change text?
-// Corrected Logic:
-// In handleClusterFlow:
-/*
-    if (rounds < total) -> openClusterRest (Timer = clusterRest)
-    else -> openClusterRest (Timer = 0 or text saying "Done"), with buttons "Finish" or "Extra Round".
-*/
-
-// RE-WRITING handleClusterFlow for better UX
-function handleClusterFlow() {
-    if (state.clusterIdx < state.activeCluster.exercises.length - 1) {
-        state.clusterIdx++;
-        const nextExName = state.activeCluster.exercises[state.clusterIdx].name;
-        showConfirmScreen(nextExName);
-    } else {
-        // End of round
-        navigate('ui-cluster-rest');
-        
-        if (state.clusterRound < state.activeCluster.rounds) {
-            document.getElementById('cluster-status-text').innerText = `סיום סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
-            document.getElementById('btn-extra-round').style.display = 'none';
-            resetAndStartTimer(state.activeCluster.clusterRest);
-        } else {
-            document.getElementById('cluster-status-text').innerText = `הסבבים הושלמו (${state.activeCluster.rounds})`;
-            document.getElementById('btn-extra-round').style.display = 'block';
-            stopRestTimer();
-            document.getElementById('cluster-timer-text').innerText = "✓";
-        }
-        
-        // List preview
-        const listDiv = document.getElementById('cluster-next-list');
-        listDiv.innerHTML = state.activeCluster.exercises.map((e,i) => `<div>${i+1}. ${e.name}</div>`).join('');
-    }
+    // Re-render rest screen logic
+    handleClusterFlow();
 }
 
 function finishCluster() {
     state.clusterMode = false;
     state.activeCluster = null;
-    state.exIdx++; // Move to next item in main workout
+    state.exIdx++; 
     checkFlow();
 }
 
-// --- STANDARD FUNCTIONS (Skip/Resume/Summary) ---
+// --- STANDARD FUNCTIONS ---
 
 function skipCurrentExercise() {
     if(confirm("לדלג על תרגיל זה ולעבור לבא?")) {
@@ -1875,7 +1946,7 @@ function openSwapMenu() {
     container.appendChild(titleOrder);
 
     const remaining = workoutList.filter(item => {
-        if(item.type === 'cluster') return true; // Show clusters? No easy way to swap INTO cluster mid-flow. Skipping for simplicity.
+        if(item.type === 'cluster') return true; 
         const isDone = isExOrVariationDone(item.name);
         const isCurrent = item.name === state.currentExName;
         return !isDone && !isCurrent;
@@ -1889,7 +1960,6 @@ function openSwapMenu() {
         container.appendChild(empty);
     } else {
         remaining.forEach(item => {
-            // Cannot swap cluster itself easily in this simplified swap UI
             if (item.type !== 'cluster') {
                 const btn = document.createElement('button'); 
                 btn.className = "menu-card"; 
