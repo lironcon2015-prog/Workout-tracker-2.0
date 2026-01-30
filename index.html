@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 12.5.1</title>
+    <title>GymPro Elite 12.5.2</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
@@ -56,6 +56,18 @@
         </div>
     </div>
 
+    <!-- Recovery Modal (NEW) -->
+    <div id="recovery-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>נמצא אימון פעיל</h3>
+            <p class="sub-text">האם ברצונך להמשיך מהנקודה שבה הפסקת?</p>
+            <div class="vertical-stack">
+                <button class="btn-main primary-gradient" onclick="restoreSession()">כן, המשך אימון</button>
+                <button class="btn-text" style="color: #ff453a;" onclick="discardSession()">לא, התחל מחדש</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Bottom Sheet (Drawer) -->
     <div id="sheet-overlay" class="bottom-sheet-overlay" onclick="closeDayDrawer()"></div>
     <div id="sheet-modal" class="bottom-sheet">
@@ -70,8 +82,8 @@
                 <div class="chevron-back"></div>
             </button>
             <div class="brand-logo">GYMPRO <span>ELITE</span></div>
-            <!-- Settings Button -->
-            <button class="settings-btn" onclick="openSettings()">
+            <!-- Settings Button (Now with ID) -->
+            <button id="btn-settings" class="settings-btn" onclick="openSettings()">
                 ⚙️
             </button>
         </header>
@@ -96,7 +108,7 @@
                     <div class="card-text center-text">ארכיון וגיבוי</div>
                 </button>
 
-                <div class="version-footer">GymPro Elite v12.5.1</div>
+                <div class="version-footer">GymPro Elite v12.5.2</div>
             </div>
 
             <!-- SETTINGS SCREEN -->
@@ -110,7 +122,7 @@
 
                 <div class="glass-card">
                     <h3 style="margin-top:0">ניהול נתונים</h3>
-                    <p style="color:var(--text-dim); font-size:0.9em;">גרסה V12.5.1</p>
+                    <p style="color:var(--text-dim); font-size:0.9em;">גרסה V12.5.2</p>
                     
                     <button class="btn-text" style="color: #ff453a; border: 1px solid #ff453a; border-radius: 12px; margin-bottom: 20px;" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     
@@ -354,20 +366,26 @@
 
             </div>
 
-            <div id="ui-ask-extra" class="screen flex-center">
-                <div class="confirm-box">
+            <!-- UI ASK EXTRA (FIXED LAYOUT) -->
+            <div id="ui-ask-extra" class="screen">
+                <div class="confirm-fixed-top">
                     <h2>האם להוסיף תרגילים נוספים?</h2>
                     <p class="sub-text">ניתן לבחור תרגילים מכל קבוצות השרירים</p>
-                    <button class="btn-main primary-gradient" onclick="startExtraPhase()">כן, הוסף תרגיל</button>
-                    <button class="btn-text" onclick="navigate('ui-ask-arms')">לא, המשך לידיים</button>
+                    <div class="vertical-stack">
+                        <button class="btn-main primary-gradient" onclick="startExtraPhase()">כן, הוסף תרגיל</button>
+                        <button class="btn-text" onclick="navigate('ui-ask-arms')">לא, המשך לידיים</button>
+                    </div>
                 </div>
             </div>
 
-            <div id="ui-ask-arms" class="screen flex-center">
-                <div class="confirm-box">
+            <!-- UI ASK ARMS (FIXED LAYOUT) -->
+            <div id="ui-ask-arms" class="screen">
+                <div class="confirm-fixed-top">
                     <h2>האם להוסיף ידיים?</h2>
-                    <button class="btn-main primary-gradient" onclick="startArmWorkout()">כן</button>
-                    <button class="btn-text" onclick="finish()">לא, סיים אימון</button>
+                    <div class="vertical-stack">
+                        <button class="btn-main primary-gradient" onclick="startArmWorkout()">כן</button>
+                        <button class="btn-text" onclick="finish()">לא, סיים אימון</button>
+                    </div>
                 </div>
             </div>
 
