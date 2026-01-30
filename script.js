@@ -1,8 +1,8 @@
 /**
- * GYMPRO ELITE V12.5.2 (Patched)
- * - Fix: Recovery Logic for Dynamic Screens (Swap, Cluster, etc.).
- * - Fix: Smart Timer Recovery (Calculates elapsed time).
- * - Refactor: Cluster Rest UI rendering separated for recovery.
+ * GYMPRO ELITE V12.5.3 (Patched)
+ * - Fix: State Persistence Timing (Saves AFTER navigation now).
+ * - Fix: Router cases for specific static screens (Extra, Arms).
+ * - Version Bump: 12.5.3
  */
 
 // --- DEFAULT DATA (Factory Settings) ---
@@ -200,7 +200,7 @@ const StorageManager = {
     KEY_ARCHIVE: 'gympro_archive',
     KEY_DB_EXERCISES: 'gympro_db_exercises',
     KEY_DB_WORKOUTS: 'gympro_db_workouts',
-    KEY_SESSION: 'gympro_current_session', // NEW KEY for Auto-Recovery
+    KEY_SESSION: 'gympro_current_session', 
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); } 
@@ -326,7 +326,7 @@ const StorageManager = {
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.5.2',
+            version: '12.5.3', // UPDATED VERSION
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES)
@@ -399,11 +399,7 @@ function restoreSession() {
                         // Resume timer
                         document.getElementById('timer-area').style.visibility = 'visible';
                         resetAndStartTimer(target); 
-                        // Note: resetAndStartTimer resets start time to NOW. We need to offset it.
-                        // But for simplicity in this version, we restart the visual countdown based on remaining.
-                        // Ideally: calculate offset. Here: Simple restart of remaining is acceptable or just show 0 if done.
                     } else {
-                        // Timer finished while closed
                          document.getElementById('timer-area').style.visibility = 'visible';
                          document.getElementById('rest-timer').innerText = "00:00";
                          document.getElementById('timer-progress').style.strokeDashoffset = 0;
@@ -464,6 +460,15 @@ function restoreSession() {
                 
             case 'ui-arm-selection':
                 if (state.isArmPhase) showArmSelection();
+                break;
+                
+            // NEW STATIC ROUTER CASES (Explicitly handle)
+            case 'ui-ask-extra':
+                // Static screen, just ensure navigation happened (already done above)
+                break;
+                
+            case 'ui-ask-arms':
+                // Static screen
                 break;
 
             case 'ui-archive':
@@ -1010,7 +1015,6 @@ function renderSelectorList() {
         list.appendChild(btn);
     });
 }
-
 // --- WORKOUT FLOW ENGINE (ZIG-ZAG & CLUSTERS) ---
 
 function selectWeek(w) { state.week = w; navigate('ui-workout-type'); }
@@ -1021,8 +1025,7 @@ function selectWorkout(t) {
     state.workoutStartTime = Date.now();
     state.clusterMode = false;
     
-    StorageManager.saveSessionState(); // SAVE STATE
-    checkFlow();
+    checkFlow(); // checkFlow calls showConfirmScreen which saves state
 }
 
 function checkFlow() {
@@ -1030,6 +1033,7 @@ function checkFlow() {
     
     if (state.exIdx >= workoutList.length) {
         navigate('ui-ask-extra');
+        StorageManager.saveSessionState(); // Fix: Save state when hitting extra phase
         return;
     }
 
@@ -1043,7 +1047,7 @@ function checkFlow() {
         state.clusterRound = 1;
         state.lastClusterRest = 30; // Default init
         
-        // Show Cluster Entry Screen (New Requirement)
+        // Show Cluster Entry Screen
         showConfirmScreen();
     } 
     // IF REGULAR
@@ -1060,11 +1064,8 @@ function checkFlow() {
 }
 
 function showConfirmScreen(forceExName = null) {
-    StorageManager.saveSessionState(); // SAVE STATE
-    
     // --- CLUSTER ENTRY SCREEN LOGIC ---
     if (state.clusterMode && state.clusterIdx === 0 && !forceExName) {
-        // Render special Cluster Entry screen inside ui-confirm
         document.getElementById('confirm-ex-name').innerText = "סבב / מעגל (Cluster)";
         document.getElementById('confirm-ex-config').innerText = `סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
         document.getElementById('confirm-ex-config').style.display = 'block';
@@ -1078,16 +1079,14 @@ function showConfirmScreen(forceExName = null) {
         listHtml += `</div>`;
         historyContainer.innerHTML = listHtml;
         
-        // Hide standard buttons, we only need Start
         document.querySelector('.secondary-buttons-grid').style.display = 'none';
         
-        // FIX: Navigation logic missing in previous version causing broken state
         navigate('ui-confirm');
-        
+        StorageManager.saveSessionState(); // Save AFTER Navigate
         return;
     }
 
-    // --- STANDARD EXERCISE LOGIC (Or triggered manually inside cluster) ---
+    // --- STANDARD EXERCISE LOGIC ---
     document.querySelector('.secondary-buttons-grid').style.display = 'grid'; // Restore buttons
 
     let exName = forceExName;
@@ -1098,7 +1097,6 @@ function showConfirmScreen(forceExName = null) {
         exName = currentPlanItem.name;
     }
     
-    // Logic for loading exercise data...
     const exData = state.exercises.find(e => e.name === exName);
     if (!exData) { alert("שגיאה: התרגיל לא נמצא במאגר."); return; }
 
@@ -1129,19 +1127,19 @@ function showConfirmScreen(forceExName = null) {
         configDiv.style.display = 'none';
     }
 
-    // New button logic - specific hidden state
+    // Button visibility logic
     const swapBtn = document.getElementById('btn-swap-confirm');
     const addBtn = document.getElementById('btn-add-exercise');
     
     if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
         swapBtn.style.visibility = 'visible';
-        addBtn.style.visibility = 'visible'; // Show Add button in normal flow
+        addBtn.style.visibility = 'visible'; 
     } else {
-        swapBtn.style.visibility = 'hidden'; // Keep layout but hide
+        swapBtn.style.visibility = 'hidden'; 
         addBtn.style.visibility = 'hidden'; 
     }
 
-    // --- HISTORY UI (NEW GRID SYSTEM) ---
+    // --- HISTORY UI ---
     const historyContainer = document.getElementById('history-container');
     historyContainer.innerHTML = "";
     
@@ -1150,9 +1148,7 @@ function showConfirmScreen(forceExName = null) {
     if (history) {
         let rowsHtml = "";
         history.sets.forEach((setStr, idx) => {
-            // Parse set string: "80kg x 8 (RIR 2) | Note..."
             let weight = "-", reps = "-", rir = "-";
-            
             try {
                 const parts = setStr.split('x');
                 if(parts.length > 1) {
@@ -1191,6 +1187,7 @@ function showConfirmScreen(forceExName = null) {
     }
 
     navigate('ui-confirm');
+    StorageManager.saveSessionState(); // Fix: Save state AFTER arriving at confirm
 }
 
 function getLastPerformance(exName) {
@@ -1205,18 +1202,12 @@ function getLastPerformance(exName) {
 
 function confirmExercise(doEx) {
     if (state.clusterMode && state.clusterIdx === 0 && document.getElementById('confirm-ex-name').innerText.includes("Cluster")) {
-        // Clicked Start on Cluster Entry Screen
-        // Start first exercise
         const firstExName = state.activeCluster.exercises[0].name;
-        // Proceed to setup
-        // Need to set up state.currentEx correctly
         const exData = state.exercises.find(e => e.name === firstExName);
         state.currentEx = JSON.parse(JSON.stringify(exData));
         state.currentExName = exData.name;
         if(state.activeCluster.exercises[0].restTime) state.currentEx.restTime = state.activeCluster.exercises[0].restTime;
         
-        // Fall through to startRecording
-        // Set target sets to 1 for flow
         resizeSets(1);
         startRecording();
         return;
@@ -1257,10 +1248,8 @@ function confirmExercise(doEx) {
 }
 
 function resizeSets(count) {
-    // FIX: Try to preserve default reps from first set if possible, otherwise default to 10
     const defaultReps = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].r : 10;
     const defaultWeight = (state.currentEx.sets && state.currentEx.sets[0]) ? state.currentEx.sets[0].w : 10;
-    
     state.currentEx.sets = Array(count).fill({w: defaultWeight, r: defaultReps});
 }
 
@@ -1274,6 +1263,7 @@ function setupCalculatedEx() {
         let o = new Option(i + " kg", i); if(i === defaultRM) o.selected = true; p.add(o);
     }
     navigate('ui-1rm');
+    StorageManager.saveSessionState();
 }
 
 function save1RM() {
@@ -1281,17 +1271,12 @@ function save1RM() {
     StorageManager.saveRM(state.currentExName, state.rm);
     
     let percentages = []; let reps = [];
-    
-    // SAFETY: Parse int to ensure week is treated as number
     const w = parseInt(state.week);
     
     if (w === 1) { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; } 
     else if (w === 2) { percentages = [0.70, 0.80, 0.90, 0.80, 0.70, 0.70]; reps = [3, 3, 3, 8, 10, 10]; } 
     else if (w === 3) { percentages = [0.75, 0.85, 0.95, 0.85, 0.75, 0.75]; reps = [5, 3, 1, 8, 10, 10]; }
-    else { 
-        // Fallback default (Treat like week 1) if data is corrupted
-        percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; 
-    }
+    else { percentages = [0.65, 0.75, 0.85, 0.75, 0.65]; reps = [5, 5, 5, 8, 10]; }
 
     state.currentEx.sets = percentages.map((pct, i) => ({ w: Math.round((state.rm * pct) / 2.5) * 2.5, r: reps[i] }));
     startRecording();
@@ -1299,14 +1284,13 @@ function save1RM() {
 
 function startRecording() { 
     state.setIdx = 0; 
-    state.lastLoggedSet = null; // Clear last set for new exercise
+    state.lastLoggedSet = null; 
     document.getElementById('action-panel').style.display = 'none';
     document.getElementById('btn-submit-set').style.display = 'block';
     
-    StorageManager.saveSessionState(); // SAVE STATE
-    
-    navigate('ui-main'); 
+    navigate('ui-main'); // Fix: Navigate FIRST
     initPickers(); 
+    StorageManager.saveSessionState(); // Fix: Save AFTER navigation
 }
 
 function isUnilateral(exName) {
@@ -1316,7 +1300,6 @@ function isUnilateral(exName) {
 function initPickers() {
     document.getElementById('ex-display-name').innerText = state.currentExName;
     
-    // Inject Cluster Queue if needed
     const exHeader = document.querySelector('.exercise-header');
     const existingQueue = document.querySelector('.cluster-queue-container');
     if (existingQueue) existingQueue.remove();
@@ -1336,11 +1319,9 @@ function initPickers() {
         if (!foundNext) queueHtml += `<div class="queue-item">--- סוף סבב ---</div>`;
         
         queueDiv.innerHTML = queueHtml;
-        // Insert after header
         exHeader.parentNode.insertBefore(queueDiv, exHeader.nextSibling);
     }
 
-    // Badge Update
     const badge = document.getElementById('set-counter');
     if (state.clusterMode) {
         badge.innerText = `ROUND ${state.clusterRound}/${state.activeCluster.rounds}`;
@@ -1353,7 +1334,6 @@ function initPickers() {
     const target = state.currentEx.sets[state.setIdx];
     document.getElementById('set-notes').value = '';
     
-    // History
     const hist = document.getElementById('last-set-info');
     if (state.lastLoggedSet) {
         hist.innerText = `סט אחרון: ${state.lastLoggedSet.w}kg x ${state.lastLoggedSet.r} (RIR ${state.lastLoggedSet.rir})`;
@@ -1363,31 +1343,26 @@ function initPickers() {
     document.getElementById('unilateral-note').style.display = isUnilateral(state.currentExName) ? 'block' : 'none';
     document.getElementById('btn-warmup').style.display = (state.setIdx === 0 && !state.clusterMode && ["Squat", "Deadlift", "Bench", "Overhead"].some(k => state.currentExName.includes(k))) ? 'block' : 'none';
     
-    // Timer visibility (Hide unless explicitly shown in standard flow, or active in cluster)
     const timerArea = document.getElementById('timer-area');
-    // If we just arrived here in Cluster mode with a running timer
     if (state.clusterMode && state.timerInterval) {
         timerArea.style.visibility = 'visible';
     } else if (state.setIdx > 0 && document.getElementById('action-panel').style.display === 'none') { 
         timerArea.style.visibility = 'visible'; 
-        // Logic for timer restart happens in restoreSession if needed, or by nextStep
     } else { 
         timerArea.style.visibility = 'hidden'; 
-        // Do not stop timer if cluster flow is active!
         if (!state.clusterMode) stopRestTimer(); 
     }
 
     const skipBtn = document.getElementById('btn-skip-exercise');
     skipBtn.style.display = (state.setIdx === 0) ? 'none' : 'block';
 
-    // Weights & Reps - FIX 1RM PRIORITY
     const wPick = document.getElementById('weight-picker'); wPick.innerHTML = "";
     const step = state.currentEx.step || 2.5;
     const savedWeight = StorageManager.getLastWeight(state.currentExName);
     
     let defaultW;
     if (state.currentEx.isCalc) {
-        defaultW = target.w; // Priority to calculated weight
+        defaultW = target.w; 
     } else {
         defaultW = state.lastLoggedSet ? state.lastLoggedSet.w : (state.setIdx === 0 && savedWeight ? savedWeight : (target ? target.w : 0));
     }
@@ -1400,18 +1375,13 @@ function initPickers() {
         let o = new Option(i + " kg", i); if(i === defaultW) o.selected = true; wPick.add(o);
     }
     
-    // --- 1RM FIX: Logic for default Reps ---
     const rPick = document.getElementById('reps-picker'); rPick.innerHTML = "";
-    
     let currentR;
     if (state.currentEx.isCalc) {
-        // If Calculated/Main: Use TARGET reps (ignore last set history)
         currentR = target ? target.r : 5;
     } else {
-        // If Regular: Use Last Set (if exists) for comfort, else target
         currentR = state.lastLoggedSet ? state.lastLoggedSet.r : (target ? target.r : 8);
     }
-    
     for(let i = 1; i <= 30; i++) { let o = new Option(i, i); if(i === currentR) o.selected = true; rPick.add(o); }
     
     const rirPick = document.getElementById('rir-picker'); rirPick.innerHTML = "";
@@ -1452,20 +1422,14 @@ function resetAndStartTimer(customTime = null) {
     state.timerInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
         state.seconds = elapsed;
-        
-        const remaining = Math.max(0, target - elapsed); // Show remaining time for UI feel, or elapsed?
-        // Current logic shows elapsed up to target. Let's keep consistency.
-        
+        const remaining = Math.max(0, target - elapsed); 
         const mins = Math.floor(state.seconds / 60).toString().padStart(2, '0');
         const secs = (state.seconds % 60).toString().padStart(2, '0');
         const progress = Math.min(state.seconds / target, 1);
-        
         updateUI(mins, secs, progress);
-        
         if (state.seconds === target) playBeep(2);
     }, 100); 
     
-    // Immediate Update
     StorageManager.saveSessionState();
 }
 
@@ -1479,41 +1443,29 @@ function nextStep() {
     StorageManager.saveWeight(state.currentExName, wVal);
     state.log.push(entry); state.lastLoggedSet = entry;
 
-    StorageManager.saveSessionState(); // SAVE STATE
+    StorageManager.saveSessionState(); 
 
-    // --- CLUSTER FLOW LOGIC (Instant Transition) ---
     if (state.clusterMode) {
-        // Store current rest time before switching
         state.lastClusterRest = state.currentEx.restTime || 30;
 
-        // Is there another exercise in this round?
         if (state.clusterIdx < state.activeCluster.exercises.length - 1) {
-            // YES: Switch immediately
             state.clusterIdx++;
             const nextExName = state.activeCluster.exercises[state.clusterIdx].name;
             const exData = state.exercises.find(e => e.name === nextExName);
-            
-            // Set up next exercise
             state.currentEx = JSON.parse(JSON.stringify(exData));
             state.currentExName = exData.name;
             if(state.activeCluster.exercises[state.clusterIdx].restTime) state.currentEx.restTime = state.activeCluster.exercises[state.clusterIdx].restTime;
-            state.currentEx.sets = [{w:10, r:10}]; // Dummy set structure
+            state.currentEx.sets = [{w:10, r:10}];
             
-            // Reset state for new exercise input
             state.setIdx = 0;
-            state.lastLoggedSet = null; // Important: Clear visual history of previous different exercise
+            state.lastLoggedSet = null; 
             
-            // Re-render UI
             initPickers();
-            
-            // Start Timer (using previous exercise rest time)
             document.getElementById('timer-area').style.visibility = 'visible';
             resetAndStartTimer(state.lastClusterRest);
             
-            return; // EXIT FUNCTION, Stay in ui-main
+            return; 
         } else {
-            // End of round exercises.
-            // FIX: If this is the last exercise of the round, finish immediately! No action panel.
              finishCurrentExercise();
              return;
         }
@@ -1522,7 +1474,6 @@ function nextStep() {
     if (state.setIdx < state.currentEx.sets.length - 1) { 
         state.setIdx++; 
         initPickers(); 
-        // In-set timer (Regular mode)
         document.getElementById('timer-area').style.visibility = 'visible'; 
         resetAndStartTimer();
     } else { 
@@ -1535,7 +1486,6 @@ function nextStep() {
         let nextName = getNextExerciseName();
         document.getElementById('next-ex-preview').innerText = `הבא בתור: ${nextName}`;
         
-        // --- FIX: NO TIMER IN STANDARD ACTION PANEL ---
         if (!state.clusterMode) {
             document.getElementById('timer-area').style.visibility = 'hidden';
             stopRestTimer();
@@ -1554,36 +1504,43 @@ function getNextExerciseName() {
 function finishCurrentExercise() {
     state.historyStack = state.historyStack.filter(s => s !== 'ui-main');
     
-    StorageManager.saveSessionState(); // SAVE STATE
-
     if (state.clusterMode) {
-        handleClusterFlow();
+        handleClusterFlow(); // handleClusterFlow navigates and saves internally
     } else {
         if (!state.completedExInSession.includes(state.currentExName)) state.completedExInSession.push(state.currentExName);
         
-        if (state.isInterruption) { state.isInterruption = false; navigate('ui-confirm'); } 
-        else if (state.isExtraPhase) { navigate('ui-ask-extra'); } 
-        else if (state.isArmPhase) { showArmSelection(); } 
-        else if (state.isFreestyle) { showExerciseList(state.currentMuscle); } 
-        else { checkFlow(); }
+        if (state.isInterruption) { 
+            state.isInterruption = false; 
+            navigate('ui-confirm'); 
+            StorageManager.saveSessionState(); // Fix: Save after navigating back
+        } 
+        else if (state.isExtraPhase) { 
+            navigate('ui-ask-extra'); 
+            StorageManager.saveSessionState(); // Fix: Save after navigating to Ask Extra
+        } 
+        else if (state.isArmPhase) { 
+            showArmSelection(); // showArmSelection navigates and saves
+        } 
+        else if (state.isFreestyle) { 
+            showExerciseList(state.currentMuscle); // showExerciseList navigates and saves
+        } 
+        else { 
+            checkFlow(); // checkFlow navigates via showConfirmScreen which saves
+        }
     }
 }
 
 function handleClusterFlow() {
-    // Navigate to rest screen
     navigate('ui-cluster-rest');
     
-    // Start timer for the cluster rest
     if (state.clusterRound < state.activeCluster.rounds) {
         resetAndStartTimer(state.activeCluster.clusterRest);
     } else {
         stopRestTimer();
     }
     
-    // Render UI Elements
     renderClusterRestUI();
-    
-    StorageManager.saveSessionState(); // SAVE STATE
+    StorageManager.saveSessionState();
 }
 
 function renderClusterRestUI() {
@@ -1594,7 +1551,6 @@ function renderClusterRestUI() {
         document.getElementById('cluster-status-text').innerText = `סיום סבב ${state.clusterRound} מתוך ${state.activeCluster.rounds}`;
         document.getElementById('btn-extra-round').style.display = 'none';
         
-        // Normal Flow Buttons
         btnMain.innerText = "התחל סבב הבא";
         btnMain.onclick = startNextRound;
         btnSkip.style.display = 'block';
@@ -1602,13 +1558,11 @@ function renderClusterRestUI() {
         document.getElementById('cluster-status-text').innerText = `הסבבים הושלמו (${state.activeCluster.rounds})`;
         document.getElementById('btn-extra-round').style.display = 'block';
         
-        // Mark timer as done visually
         document.getElementById('cluster-timer-text').innerText = "✓";
         
-        // Finish Flow Buttons
         btnMain.innerText = "סיום";
         btnMain.onclick = finishCluster;
-        btnSkip.style.display = 'none'; // Hide red button
+        btnSkip.style.display = 'none';
     }
     
     const listDiv = document.getElementById('cluster-next-list');
@@ -1620,7 +1574,6 @@ function startNextRound() {
     state.clusterIdx = 0;
     stopRestTimer();
     
-    // Jump straight to first exercise of next round (similar to Instant Transition)
     const nextExName = state.activeCluster.exercises[0].name;
     const exData = state.exercises.find(e => e.name === nextExName);
     
@@ -1630,13 +1583,11 @@ function startNextRound() {
     
     state.currentEx.sets = [{w:10, r:10}];
     
-    // Manual setup like confirmExercise(true)
     startRecording();
 }
 
 function addExtraRound() {
     state.activeCluster.rounds++;
-    // Re-render rest screen logic
     renderClusterRestUI();
     StorageManager.saveSessionState();
 }
@@ -1672,11 +1623,23 @@ function interruptWorkout() {
     document.getElementById('btn-resume-flow').style.display = 'flex';
     document.getElementById('btn-finish-extra').style.display = 'none';
     navigate('ui-muscle-select');
+    StorageManager.saveSessionState(); // Fix: Save after navigating to muscle select
 }
 
-function resumeWorkout() { state.isInterruption = false; navigate('ui-confirm'); }
-function startExtraPhase() { state.isExtraPhase = true; document.getElementById('btn-resume-flow').style.display = 'none'; document.getElementById('btn-finish-extra').style.display = 'block'; navigate('ui-muscle-select'); }
-function finishExtraPhase() { navigate('ui-ask-arms'); }
+function resumeWorkout() { state.isInterruption = false; navigate('ui-confirm'); StorageManager.saveSessionState(); }
+
+function startExtraPhase() { 
+    state.isExtraPhase = true; 
+    document.getElementById('btn-resume-flow').style.display = 'none'; 
+    document.getElementById('btn-finish-extra').style.display = 'block'; 
+    navigate('ui-muscle-select');
+    StorageManager.saveSessionState(); // Fix: Save after navigating
+}
+
+function finishExtraPhase() { 
+    navigate('ui-ask-arms'); 
+    StorageManager.saveSessionState(); // Fix: Save after navigating
+}
 
 function startFreestyle() {
     state.type = 'Freestyle'; state.log = []; state.completedExInSession = [];
@@ -1685,9 +1648,8 @@ function startFreestyle() {
     document.getElementById('btn-resume-flow').style.display = 'none';
     document.getElementById('btn-finish-extra').style.display = 'none';
     
-    StorageManager.saveSessionState(); // SAVE STATE
-    
     navigate('ui-muscle-select');
+    StorageManager.saveSessionState(); // Fix: Save after navigating
 }
 
 function showExerciseList(muscle) {
@@ -1721,7 +1683,7 @@ function showExerciseList(muscle) {
 
     renderFreestyleList();
     navigate('ui-variation');
-    StorageManager.saveSessionState(); // Save muscle selection state
+    StorageManager.saveSessionState(); 
 }
 
 function renderFreestyleChips(filters, mainMuscle) {
@@ -1768,6 +1730,7 @@ function startArmWorkout() {
     opts.appendChild(btnBi); opts.appendChild(btnTri);
     document.getElementById('btn-skip-arm-group').style.display = 'none';
     navigate('ui-arm-selection');
+    StorageManager.saveSessionState();
 }
 
 function showArmSelection() {
@@ -2129,7 +2092,6 @@ function saveSetEdit() {
         hist.innerText = `סט אחרון: ${state.lastLoggedSet.w}kg x ${state.lastLoggedSet.r} (RIR ${state.lastLoggedSet.rir})`;
     }
 
-    // UPDATE SAVED STATE AFTER EDIT
     StorageManager.saveSessionState();
 
     closeEditModal();
@@ -2149,7 +2111,6 @@ function deleteLastSet() {
             state.setIdx--;
         }
         
-        // UPDATE SAVED STATE
         StorageManager.saveSessionState();
 
         closeEditModal();
@@ -2251,6 +2212,6 @@ function calcWarmup() {
 function closeWarmup() { document.getElementById('warmup-modal').style.display = 'none'; }
 function markWarmupDone() { 
     state.log.push({ exName: state.currentExName, isWarmup: true }); 
-    StorageManager.saveSessionState(); // SAVE STATE
+    StorageManager.saveSessionState(); 
     closeWarmup(); 
 }
