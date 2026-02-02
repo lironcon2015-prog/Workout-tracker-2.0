@@ -1,5 +1,5 @@
 /**
- * GYMPRO ELITE V12.8.0 (Freestyle Upgrade & Exercise DB Manager)
+ * GYMPRO ELITE V12.9.0 (Freestyle Upgrade & Exercise DB Manager)
  * - Feature: Unified Freestyle UI (Search + Chips).
  * - Refactor: Removed redundant 'muscle-select' screen.
  * - Logic: Unified navigation flows (Freestyle, Interruption, Extra Phase) into one screen.
@@ -329,7 +329,7 @@ const StorageManager = {
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.8.0',
+            version: '12.9.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
