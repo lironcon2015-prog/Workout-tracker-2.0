@@ -1,8 +1,8 @@
 /**
- * GYMPRO ELITE V12.9.0 (Freestyle Upgrade & Exercise DB Manager)
- * - Feature: Unified Freestyle UI (Search + Chips).
- * - Refactor: Removed redundant 'muscle-select' screen.
- * - Logic: Unified navigation flows (Freestyle, Interruption, Extra Phase) into one screen.
+ * GYMPRO ELITE V12.11.0 (Enhanced Extra Phase & Filter Upgrade)
+ * - Logic: Unified 'Arms' phase into main 'Extra' flow.
+ * - Feature: New filter logic (Biceps/Triceps split, Done tab).
+ * - UX: Sticky filters in extra phase, direct finish button.
  */
 
 // --- DEFAULT DATA ---
@@ -148,13 +148,11 @@ let state = {
     log: [], currentEx: null, currentExName: '',
     historyStack: ['ui-week'],
     timerInterval: null, seconds: 0, startTime: null,
-    isArmPhase: false, isFreestyle: false, isExtraPhase: false, isInterruption: false,
+    isFreestyle: false, isExtraPhase: false, isInterruption: false, // Updated flags
     currentMuscle: '',
     completedExInSession: [],
     workoutStartTime: null, workoutDurationMins: 0,
     lastLoggedSet: null,
-    firstArmGroup: null, 
-    secondArmGroup: null,
     lastWorkoutDetails: {},
     archiveView: 'list',
     calendarOffset: 0,
@@ -329,7 +327,7 @@ const StorageManager = {
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.9.0',
+            version: '12.11.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
@@ -377,13 +375,18 @@ function restoreSession() {
         
         document.getElementById('recovery-modal').style.display = 'none';
         
-        // MIGRATION: Handle legacy screen 'ui-muscle-select'
+        // MIGRATION 12.10.0: Handle removed screens
         let lastScreen = state.historyStack[state.historyStack.length - 1];
-        if (lastScreen === 'ui-muscle-select') {
-             // Replace legacy screen with new unified screen in history
-             state.historyStack.pop();
-             state.historyStack.push('ui-variation');
-             lastScreen = 'ui-variation';
+        if (['ui-muscle-select', 'ui-ask-arms', 'ui-arm-selection'].includes(lastScreen)) {
+             if (lastScreen === 'ui-muscle-select') {
+                 state.historyStack.pop();
+                 state.historyStack.push('ui-variation');
+                 lastScreen = 'ui-variation';
+             } else {
+                 state.historyStack.pop();
+                 state.historyStack.push('ui-ask-extra');
+                 lastScreen = 'ui-ask-extra';
+             }
         }
         
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -415,12 +418,10 @@ function restoreSession() {
             case 'ui-exercise-selector': document.getElementById('selector-search').value = ""; updateSelectorChips(); renderSelectorList(); break;
             case 'ui-1rm': setupCalculatedEx(); break;
             case 'ui-variation': 
-                // Ensure UI is updated correctly based on context
                 updateVariationUI();
                 renderFreestyleChips();
                 renderFreestyleList();
                 break;
-            case 'ui-arm-selection': if (state.isArmPhase) showArmSelection(); break;
             case 'ui-exercise-db': renderExerciseDatabase(); break;
             case 'ui-archive': openArchive(); break;
         }
@@ -483,22 +484,34 @@ function navigate(id) {
     if (settingsBtn) settingsBtn.style.visibility = (id === 'ui-week') ? 'visible' : 'hidden';
 }
 
+/**
+ * REFACTORED handleBackClick (V12.10.0 Guard Layers)
+ * Structured: Guard -> Cleanup -> Navigate -> Refresh
+ */
 function handleBackClick() {
     haptic('warning');
     if (state.historyStack.length <= 1) return;
 
     const currentScreen = state.historyStack[state.historyStack.length - 1];
 
+    // --- 1. GUARD LAYER (Process Screens) ---
+    // Prevent accidental exit from active processes
+    
     if (currentScreen === 'ui-main') {
-        if (state.setIdx > 0) {
+        // Special Case: Freestyle Undo (If 0 sets done, allow exit without confirmation)
+        if (state.isFreestyle && state.setIdx === 0 && state.log.length === 0) {
+            // Pass through to standard navigation
+        } 
+        else if (state.setIdx > 0) {
             if(confirm("חזרה אחורה תמחק את הסט הנוכחי. להמשיך?")) {
                state.setIdx--;
                initPickers();
                StorageManager.saveSessionState();
+               return; // Stay on screen
             }
-            return;
+            return; // Abort back
         } else {
-            state.setIdx = 0;
+            // Exit active exercise flow -> Go to Confirm
             stopRestTimer();
             state.historyStack.pop(); 
             navigate('ui-confirm');
@@ -509,45 +522,62 @@ function handleBackClick() {
     if (currentScreen === 'ui-confirm') {
         if (state.log.length > 0 || state.completedExInSession.length > 0) {
             if(confirm("האם לצאת מהאימון?")) StorageManager.clearSessionState();
-            else return;
+            else return; // Abort
         }
-        state.historyStack.pop(); 
-        const prev = state.historyStack[state.historyStack.length - 1];
-        navigate(prev); 
-        return;
+        // If empty workout, just go back
     }
 
-    if (currentScreen === 'ui-workout-manager' || currentScreen === 'ui-exercise-db') { state.historyStack.pop(); navigate('ui-settings'); return; }
+    if (currentScreen === 'ui-cluster-rest') {
+        if(!confirm("האם לצאת ממצב Cluster?")) return;
+        state.clusterMode = false;
+        // Proceed to back
+    }
+
     if (currentScreen === 'ui-workout-editor') { 
-        if(confirm("לצאת ללא שמירה?")) { state.historyStack.pop(); navigate('ui-workout-manager'); }
+        if(confirm("לצאת ללא שמירה?")) { 
+            state.historyStack.pop(); 
+            navigate('ui-workout-manager'); 
+            return;
+        }
         return; 
     }
-    if (currentScreen === 'ui-exercise-selector') { state.historyStack.pop(); navigate('ui-workout-editor'); return; }
-    if (currentScreen === 'ui-archive') { state.historyStack.pop(); navigate('ui-week'); return; }
-    if (currentScreen === 'ui-archive-detail') { state.historyStack.pop(); navigate('ui-archive'); return; }
-    if (currentScreen === 'ui-swap-list') { state.historyStack.pop(); navigate('ui-confirm'); return; }
-    if (currentScreen === 'ui-settings') { state.historyStack.pop(); navigate('ui-week'); return; }
+
+    // --- 2. CLEANUP LAYER (Transient Screens) ---
+    // Reset flags and temporary states when leaving specific screens
     
-    // UPDATED LOGIC FOR UNIFIED UI-VARIATION
     if (currentScreen === 'ui-variation') {
-        if (state.isFreestyle) { 
-            state.historyStack.pop(); navigate('ui-workout-type'); return; 
-        } else if (state.isInterruption) {
-             state.isInterruption = false;
-             state.historyStack.pop(); navigate('ui-confirm'); return;
-        } else if (state.isExtraPhase) {
-            // Cancel extra phase
-            state.isExtraPhase = false;
-            state.historyStack.pop(); navigate('ui-ask-extra'); return;
-        }
+        state.isInterruption = false;
+        state.isExtraPhase = false;
+        state.freestyleFilter = 'all'; // Reset filter on BACK (but keep on flow)
     }
 
+    if (currentScreen === 'ui-exercise-selector') {
+        document.getElementById('selector-search').value = "";
+    }
+
+    // --- 3. NAVIGATION LAYER ---
+    // Standard Stack Pop
     state.historyStack.pop();
     const prevScreen = state.historyStack[state.historyStack.length - 1];
+    
+    // --- 4. REFRESH LAYER ---
+    // Ensure the destination screen is in correct state
+    
+    if (prevScreen === 'ui-variation') {
+        updateVariationUI(); 
+        // Note: renderFreestyleList will be called by navigate->restore or we might need explicit call
+        // navigate() calls nothing, just switches class. restoreSession handles reload.
+        // We might need to ensure chips are rendered.
+        renderFreestyleChips();
+        renderFreestyleList();
+    }
+
+    // Perform the UI switch manually to avoid pushing to stack again (since we just popped)
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(prevScreen).classList.add('active');
-    document.getElementById('global-back').style.visibility = (prevScreen === 'ui-week') ? 'hidden' : 'visible';
     
+    // Update Header Buttons
+    document.getElementById('global-back').style.visibility = (prevScreen === 'ui-week') ? 'hidden' : 'visible';
     const settingsBtn = document.getElementById('btn-settings');
     if (settingsBtn) settingsBtn.style.visibility = (prevScreen === 'ui-week') ? 'visible' : 'hidden';
 }
@@ -596,7 +626,6 @@ function renderWorkoutMenu() {
         });
     }
 }
-
 // --- WORKOUT MANAGER ---
 
 function openWorkoutManager() { renderManagerList(); navigate('ui-workout-manager'); }
@@ -699,7 +728,12 @@ function openExerciseEditor(exName) {
     document.getElementById('conf-ex-name').value = ex.name;
     document.getElementById('conf-ex-name').disabled = true;
     
-    document.getElementById('conf-ex-muscle').value = ex.muscles[0] || "חזה";
+    // UPDATED V12.10.0: Handle Biceps/Triceps mapping back to dropdown
+    let muscleVal = ex.muscles[0] || "חזה";
+    if (ex.muscles.includes('biceps')) muscleVal = "יד קדמית";
+    else if (ex.muscles.includes('triceps')) muscleVal = "יד אחורית";
+    
+    document.getElementById('conf-ex-muscle').value = muscleVal;
     document.getElementById('conf-ex-step').value = ex.step || "2.5";
     
     document.getElementById('conf-ex-uni').checked = !!ex.isUnilateral;
@@ -752,10 +786,11 @@ function renderExerciseDatabase() {
         list.appendChild(row);
     });
 }
+
 function saveExerciseConfig() {
     const mode = document.getElementById('ex-config-modal').dataset.mode;
     const name = document.getElementById('conf-ex-name').value.trim();
-    const muscle = document.getElementById('conf-ex-muscle').value;
+    const muscleSelect = document.getElementById('conf-ex-muscle').value; // 'יד קדמית' or 'יד אחורית'
     const step = parseFloat(document.getElementById('conf-ex-step').value);
     const base = parseFloat(document.getElementById('conf-ex-base').value);
     const min = parseFloat(document.getElementById('conf-ex-min').value);
@@ -764,12 +799,17 @@ function saveExerciseConfig() {
 
     if (!name) { alert("נא להזין שם תרגיל"); return; }
 
+    // UPDATED V12.10.0: Logic to map dropdown to muscle array
+    let musclesArr = [muscleSelect];
+    if (muscleSelect === 'יד קדמית') musclesArr = ['ידיים', 'biceps'];
+    if (muscleSelect === 'יד אחורית') musclesArr = ['ידיים', 'triceps'];
+
     if (mode === 'create') {
         if (state.exercises.find(e => e.name === name)) { alert("שם תרגיל כבר קיים"); return; }
         
         const newEx = {
             name: name,
-            muscles: [muscle],
+            muscles: musclesArr,
             step: step,
             isUnilateral: isUni,
             manualRange: {
@@ -789,7 +829,7 @@ function saveExerciseConfig() {
         const exIndex = state.exercises.findIndex(e => e.name === targetName);
         if (exIndex === -1) return;
 
-        state.exercises[exIndex].muscles = [muscle];
+        state.exercises[exIndex].muscles = musclesArr;
         state.exercises[exIndex].step = step;
         state.exercises[exIndex].isUnilateral = isUni;
         
@@ -834,7 +874,6 @@ function renderEditorList() {
     
     StorageManager.saveSessionState();
 }
-
 function renderRegularItem(item, idx, list) {
     const row = document.createElement('div');
     row.className = "editor-row";
@@ -1038,7 +1077,7 @@ function selectWeek(w) {
 
 function selectWorkout(t) {
     state.type = t; state.exIdx = 0; state.log = []; 
-    state.completedExInSession = []; state.isArmPhase = false; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
+    state.completedExInSession = []; state.isFreestyle = false; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
     state.clusterMode = false;
     checkFlow(); 
@@ -1134,7 +1173,7 @@ function showConfirmScreen(forceExName = null) {
     const swapBtn = document.getElementById('btn-swap-confirm');
     const addBtn = document.getElementById('btn-add-exercise');
     
-    if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
+    if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption) {
         swapBtn.style.visibility = 'visible';
         addBtn.style.visibility = 'visible'; 
     } else {
@@ -1223,7 +1262,7 @@ function confirmExercise(doEx) {
     let isMain = state.currentEx.isCalc; 
     let targetSets = null;
 
-    if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption && !state.isArmPhase) {
+    if (!state.isFreestyle && !state.isExtraPhase && !state.isInterruption) {
         if (state.clusterMode) {
              targetSets = 1;
              isMain = false;
@@ -1399,7 +1438,7 @@ function resetAndStartTimer(customTime = null) {
     let target = 90;
     if (customTime !== null) target = customTime;
     else if (state.currentEx.restTime) target = state.currentEx.restTime;
-    else target = (state.exIdx === 0 && !state.clusterMode && !state.isArmPhase) ? 120 : 90;
+    else target = (state.exIdx === 0 && !state.clusterMode) ? 120 : 90;
     
     const circle = document.getElementById('timer-progress'); 
     const text = document.getElementById('rest-timer');
@@ -1476,7 +1515,6 @@ function nextStep() {
 function getNextExerciseName() {
     if (state.isInterruption) return "חזרה למסלול";
     if (state.isExtraPhase) return "תרגיל נוסף";
-    if (state.isArmPhase) return "ידיים";
     if (state.exIdx < state.workouts[state.type].length - 1) return state.workouts[state.type][state.exIdx + 1].name;
     return "סיום אימון";
 }
@@ -1490,14 +1528,19 @@ function finishCurrentExercise() {
         if (!state.completedExInSession.includes(state.currentExName)) state.completedExInSession.push(state.currentExName);
         
         if (state.isInterruption) { state.isInterruption = false; navigate('ui-confirm'); StorageManager.saveSessionState(); } 
-        else if (state.isExtraPhase) { navigate('ui-ask-extra'); StorageManager.saveSessionState(); } 
-        else if (state.isArmPhase) { showArmSelection(); } 
+        else if (state.isExtraPhase) {
+            updateVariationUI();
+            renderFreestyleChips();
+            renderFreestyleList();
+            navigate('ui-variation'); 
+            StorageManager.saveSessionState(); 
+        } 
         else if (state.isFreestyle) { 
-            // Return to unified freestyle list
+            // UPDATED V12.10.0: STICKY FILTERS
+            // Removed: document.getElementById('freestyle-search').value = '';
+            // Removed: state.freestyleFilter = 'all';
+            
             navigate('ui-variation');
-            document.getElementById('freestyle-search').value = '';
-            // Reset filter
-            state.freestyleFilter = 'all';
             updateVariationUI();
             renderFreestyleChips();
             renderFreestyleList();
@@ -1592,15 +1635,13 @@ function startExtraPhase() {
 }
 
 function finishExtraPhase() { 
-    state.isExtraPhase = false; 
-    navigate('ui-ask-arms'); 
-    StorageManager.saveSessionState(); 
+    finish();
 }
 
 // --- FREESTYLE & LISTS (UNIFIED) ---
 function startFreestyle() {
     state.type = 'Freestyle'; state.log = []; state.completedExInSession = [];
-    state.isArmPhase = false; state.isFreestyle = true; state.isExtraPhase = false; state.isInterruption = false;
+    state.isFreestyle = true; state.isExtraPhase = false; state.isInterruption = false;
     state.workoutStartTime = Date.now();
     
     // Default filter
@@ -1617,7 +1658,6 @@ function startFreestyle() {
 }
 
 function updateVariationUI() {
-    // Helper to toggle context buttons
     const resumeBtn = document.getElementById('btn-var-resume');
     const finishExtraBtn = document.getElementById('btn-var-finish-extra');
     const contextContainer = document.getElementById('variation-context-container');
@@ -1636,6 +1676,7 @@ function updateVariationUI() {
         title.innerText = "תרגילי אקסטרה";
         contextContainer.style.display = 'block';
         finishExtraBtn.style.display = 'block';
+        finishExtraBtn.innerText = "סיום אימון";
     } else {
         title.innerText = "בחר תרגיל";
     }
@@ -1645,7 +1686,8 @@ function renderFreestyleChips() {
     const container = document.getElementById('variation-chips');
     container.innerHTML = "";
     
-    const muscles = ['all', 'חזה', 'גב', 'רגליים', 'כתפיים', 'ידיים', 'קליסטניקס'];
+    // UPDATED V12.10.0: Biceps/Triceps split + Done tab
+    const muscles = ['all', 'חזה', 'גב', 'רגליים', 'כתפיים', 'יד קדמית', 'יד אחורית', 'קליסטניקס', 'בוצעו'];
     const labels = { 'all': 'הכל' };
     
     muscles.forEach(m => {
@@ -1668,17 +1710,35 @@ function renderFreestyleList() {
     const searchVal = document.getElementById('freestyle-search').value.toLowerCase();
     
     let filtered = state.exercises.filter(ex => {
-        const matchesFilter = state.freestyleFilter === 'all' || ex.muscles.includes(state.freestyleFilter);
+        const isDone = state.completedExInSession.includes(ex.name);
+        
+        // 1. Done Tab Logic
+        if (state.freestyleFilter === 'בוצעו') return isDone;
+        
+        // 2. Hide done exercises from normal lists
+        if (isDone) return false;
+
+        // 3. Search Logic
         const matchesSearch = ex.name.toLowerCase().includes(searchVal);
-        const notDone = !state.completedExInSession.includes(ex.name);
-        return matchesFilter && matchesSearch && notDone;
+        if (!matchesSearch) return false;
+
+        // 4. Category Logic
+        if (state.freestyleFilter === 'all') return true;
+        if (state.freestyleFilter === 'יד קדמית') return ex.muscles.includes('biceps');
+        if (state.freestyleFilter === 'יד אחורית') return ex.muscles.includes('triceps');
+        
+        return ex.muscles.includes(state.freestyleFilter);
     });
     
     // Sort alphabetically
     filtered.sort((a,b) => a.name.localeCompare(b.name));
 
     if (filtered.length === 0) {
-        options.innerHTML = `<p style="text-align:center; color:var(--text-dim); margin-top:20px;">לא נמצאו תרגילים</p>`;
+        if (state.freestyleFilter === 'בוצעו') {
+            options.innerHTML = `<p style="text-align:center; color:var(--text-dim); margin-top:20px;">טרם בוצעו תרגילים</p>`;
+        } else {
+            options.innerHTML = `<p style="text-align:center; color:var(--text-dim); margin-top:20px;">לא נמצאו תרגילים</p>`;
+        }
         return;
     }
 
@@ -1694,47 +1754,6 @@ function renderFreestyleList() {
         };
         options.appendChild(btn);
     });
-}
-
-function startArmWorkout() { 
-    state.isArmPhase = true; 
-    document.getElementById('arm-selection-title').innerText = "מה להתחיל?";
-    const opts = document.getElementById('arm-options'); opts.innerHTML = "";
-    const btnBi = document.createElement('button'); btnBi.className = "menu-card"; btnBi.innerHTML = `<span>יד קדמית (Biceps)</span><div class="chevron"></div>`;
-    btnBi.onclick = () => { state.armGroup = 'biceps'; state.firstArmGroup = 'biceps'; state.secondArmGroup = 'triceps'; showArmSelection(); };
-    const btnTri = document.createElement('button'); btnTri.className = "menu-card"; btnTri.innerHTML = `<span>יד אחורית (Triceps)</span><div class="chevron"></div>`;
-    btnTri.onclick = () => { state.armGroup = 'triceps'; state.firstArmGroup = 'triceps'; state.secondArmGroup = 'biceps'; showArmSelection(); };
-    opts.appendChild(btnBi); opts.appendChild(btnTri);
-    document.getElementById('btn-skip-arm-group').style.display = 'none';
-    navigate('ui-arm-selection');
-    StorageManager.saveSessionState();
-}
-
-function showArmSelection() {
-    const list = state.exercises.filter(ex => ex.muscles.includes(state.armGroup));
-    const remaining = list.filter(ex => !state.completedExInSession.includes(ex.name));
-    if (remaining.length === 0) {
-        if (state.armGroup === state.firstArmGroup) { state.armGroup = state.secondArmGroup; showArmSelection(); } 
-        else { finish(); }
-        return;
-    }
-    const isBiceps = state.armGroup === 'biceps';
-    document.getElementById('arm-selection-title').innerText = isBiceps ? "בחר בייספס" : "בחר טרייספס";
-    const opts = document.getElementById('arm-options'); opts.innerHTML = "";
-    remaining.forEach(ex => {
-        const btn = document.createElement('button'); btn.className = "menu-card"; btn.innerText = ex.name;
-        btn.onclick = () => { state.currentEx = JSON.parse(JSON.stringify(ex)); state.currentExName = ex.name; state.currentEx.sets = [ex.sets[0], ex.sets[0], ex.sets[0]]; startRecording(); };
-        opts.appendChild(btn);
-    });
-    const skipBtn = document.getElementById('btn-skip-arm-group'); skipBtn.style.display = 'block';
-    if (state.armGroup === state.firstArmGroup) {
-        skipBtn.innerText = isBiceps ? "דלג לטרייספס" : "דלג לבייספס";
-        skipBtn.onclick = () => { state.armGroup = state.secondArmGroup; showArmSelection(); };
-    } else {
-        skipBtn.innerText = "סיים אימון"; skipBtn.onclick = () => finish();
-    }
-    navigate('ui-arm-selection');
-    StorageManager.saveSessionState();
 }
 
 function finish() {
