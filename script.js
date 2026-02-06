@@ -1,8 +1,6 @@
 /**
- * GYMPRO ELITE V12.11.0 (Enhanced Extra Phase & Filter Upgrade)
- * - Logic: Unified 'Arms' phase into main 'Extra' flow.
- * - Feature: New filter logic (Biceps/Triceps split, Done tab).
- * - UX: Sticky filters in extra phase, direct finish button.
+ * GYMPRO ELITE V12.11.1 (History Drawer)
+ * - Feature: Added 'History' button in active workout screen to view last session data in a drawer.
  */
 
 // --- DEFAULT DATA ---
@@ -327,7 +325,7 @@ const StorageManager = {
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.11.0',
+            version: '12.11.1',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
@@ -786,7 +784,6 @@ function renderExerciseDatabase() {
         list.appendChild(row);
     });
 }
-
 function saveExerciseConfig() {
     const mode = document.getElementById('ex-config-modal').dataset.mode;
     const name = document.getElementById('conf-ex-name').value.trim();
@@ -2001,6 +1998,63 @@ function openSessionLog() {
                     <div style="font-size:0.85em; color:#8E8E93;">${details}</div>
                 </div>
                 <div class="chevron"></div>
+            </div>`;
+        });
+        html += `</div>`;
+    }
+
+    content.innerHTML = html;
+    overlay.style.display = 'block';
+    drawer.classList.add('open');
+    haptic('light');
+}
+
+// NEW FUNCTION FOR HISTORY DRAWER
+function openHistoryDrawer() {
+    const drawer = document.getElementById('sheet-modal');
+    const overlay = document.getElementById('sheet-overlay');
+    const content = document.getElementById('sheet-content');
+    
+    // Fetch History
+    const history = getLastPerformance(state.currentExName);
+    
+    let html = `<h3>היסטוריה: ${state.currentExName}</h3>`;
+    
+    if (!history) {
+        html += `<p style="text-align:center; margin-top:20px; color:var(--text-dim);">אין נתונים מהאימון הקודם</p>`;
+    } else {
+        html += `<div style="font-size:0.85em; color:var(--text-dim); margin-bottom:15px;">📅 ביצוע אחרון: ${history.date}</div>`;
+        
+        // Header
+        html += `
+        <div style="display: grid; grid-template-columns: 0.5fr 1fr 1fr 1fr; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 10px; font-size: 0.8em; color: var(--text-dim); font-weight: 600; text-align: center;">
+            <div>סט</div>
+            <div>משקל</div>
+            <div>חזרות</div>
+            <div>RIR</div>
+        </div>
+        <div class="vertical-stack">`;
+        
+        // Rows
+        history.sets.forEach((setStr, idx) => {
+            let weight = "-", reps = "-", rir = "-";
+            try {
+                const parts = setStr.split('x');
+                if(parts.length > 1) {
+                    weight = parts[0].replace('kg', '').trim();
+                    const rest = parts[1];
+                    const rirMatch = rest.match(/\(RIR (.*?)\)/);
+                    reps = rest.split('(')[0].trim();
+                    if(rirMatch) rir = rirMatch[1];
+                }
+            } catch(e) {}
+
+            html += `
+            <div style="display: grid; grid-template-columns: 0.5fr 1fr 1fr 1fr; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.95em; text-align: center; color: white;">
+                <div style="color:var(--text-dim); font-size:0.9em;">#${idx + 1}</div>
+                <div>${weight}</div>
+                <div>${reps}</div>
+                <div style="color:var(--accent); font-size:0.85em;">${rir}</div>
             </div>`;
         });
         html += `</div>`;
