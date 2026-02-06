@@ -1,5 +1,5 @@
 /**
- * GYMPRO ELITE V12.11.1 (History Drawer)
+ * GYMPRO ELITE V12.12 (History Drawer)
  * - Feature: Added 'History' button in active workout screen to view last session data in a drawer.
  */
 
@@ -326,7 +326,7 @@ const StorageManager = {
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.11.1',
+            version: '12.12',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
