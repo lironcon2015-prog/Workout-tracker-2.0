@@ -78,13 +78,15 @@ export class Renderer {
       this.layout = buildLayout(st.lo, st.hi, W);
     }
     const L = this.layout;
+    const dx = st.shiftPx || 0;
+    if (dx) c.save(), c.translate(dx, 0);
 
     // רקע
     const bg = c.createLinearGradient(0, 0, 0, kbTop);
     bg.addColorStop(0, '#080a10');
     bg.addColorStop(1, '#131826');
     c.fillStyle = bg;
-    c.fillRect(0, 0, W, kbTop);
+    c.fillRect(-Math.abs(dx) - 4, 0, W + Math.abs(dx) * 2 + 8, kbTop);
 
     // מסלולי אוקטבות
     c.save();
@@ -157,10 +159,20 @@ export class Renderer {
         c.fill();
       }
       if (outside) {
+        // מחוץ לחלון: המיקום מקורב, אז מציגים את שם התו במפורש
+        const label = (outside < 0 ? '◀ ' : '▶ ') +
+          (st.labels === 'solfege' ? solfegeName(n.m) : noteName(n.m)) + octaveOf(n.m);
+        const ty = Math.min(Math.max(y1 + 12, 14), kbTop - 6);
+        c.font = '700 10px system-ui, sans-serif';
+        c.textAlign = outside < 0 ? 'left' : 'right';
+        const tw = c.measureText(label).width;
+        const tx = outside < 0 ? x + 2 : x + w - 2;
+        c.globalAlpha = 1;
+        c.fillStyle = 'rgba(6,8,14,.8)';
+        roundRect(c, outside < 0 ? tx - 2 : tx - tw - 4, ty - 10, tw + 6, 13, 3);
+        c.fill();
         c.fillStyle = col.edge;
-        c.font = '700 12px system-ui, sans-serif';
-        c.textAlign = 'center';
-        c.fillText(outside < 0 ? '◀' : '▶', x + w / 2, Math.min(y1 + h - 4, kbTop - 4));
+        c.fillText(label, tx, ty);
       }
       c.restore();
 
@@ -204,13 +216,15 @@ export class Renderer {
     c.fillRect(0, kbTop - 2, W, 2);
 
     this.drawKeyboard(c, L, kbTop, kbH, st);
+    if (dx) c.restore();
+    if (st.map) this.drawMinimap(c, st, W, kbTop);
     this.kbTop = kbTop; this.kbH = kbH;
   }
 
   drawKeyboard(c, L, top, h, st) {
     const blackH = h * 0.62;
     c.fillStyle = '#05070c';
-    c.fillRect(0, top, this.w, h);
+    c.fillRect(-this.w, top, this.w * 3, h);
 
     for (const k of L.keys.values()) {
       if (k.black) continue;
@@ -262,6 +276,26 @@ export class Renderer {
     }
   }
 }
+
+Renderer.prototype.drawMinimap = function (c, st, W, kbTop) {
+  const { lo: pLo, hi: pHi } = st.map;           // טווח היצירה כולה
+  const w = 108, h = 9, x = W - w - 8, y = kbTop - 22;
+  const span = Math.max(12, pHi - pLo);
+  const at = (m) => x + ((m - pLo) / span) * w;
+
+  c.save();
+  c.fillStyle = 'rgba(255,255,255,.10)';
+  roundRect(c, x, y, w, h, 3); c.fill();
+  // סימון C-ים כדי שיהיה עוגן
+  c.fillStyle = 'rgba(255,255,255,.22)';
+  for (let m = Math.ceil(pLo / 12) * 12; m <= pHi; m += 12) c.fillRect(at(m), y, 1, h);
+  // החלון המוצג כרגע
+  const a = Math.max(x, at(st.lo)), b = Math.min(x + w, at(st.hi + 1));
+  c.fillStyle = 'rgba(255,179,64,.55)';
+  roundRect(c, a, y, Math.max(6, b - a), h, 3); c.fill();
+  c.strokeStyle = 'rgba(255,214,150,.9)'; c.lineWidth = 1; c.stroke();
+  c.restore();
+};
 
 function keyState(m, st) {
   if (st.waitSet && st.waitSet.has(m)) return { wait: true };
