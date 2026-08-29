@@ -1,5 +1,5 @@
 // store.js — שמירה מקומית של הגדרות ושל יצירות שיובאו
-const S_KEY = 'pianoGuide.settings.v1';
+const S_KEY = 'pianoGuide.settings.v2';
 const L_KEY = 'pianoGuide.songs.v1';
 
 export const loadSettings = () => {

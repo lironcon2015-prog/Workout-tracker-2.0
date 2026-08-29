@@ -1,6 +1,6 @@
 // sw.js — עדכון תמיד קודם לרשת, מטמון רק כגיבוי לאופליין.
 // (הגרסה הקודמת הייתה cache-first ולכן "נתקעה" על גרסה ישנה.)
-const VERSION = '2026-08-29.5';
+const VERSION = '2026-08-29.6';
 const CACHE = 'piano-guide-' + VERSION;
 const ASSETS = [
   './', './index.html', './css/app.css', './manifest.webmanifest', './icon.svg',

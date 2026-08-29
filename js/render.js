@@ -24,7 +24,8 @@ export function buildLayout(lo, hi, width) {
     const center = (boundary + BLACK_OFF[((m % 12) + 12) % 12]) * whiteW;
     keys.set(m, { m, x: center - bw / 2, w: bw, black: true, center });
   }
-  return { keys, whiteW, blackW: bw, lo, hi, width };
+  return { keys, whiteW, blackW: bw, lo, hi, width,
+    firstWhite: whites[0], lastWhite: whites[whites.length - 1] };
 }
 
 export function keyAt(layout, x, y, kbTop, kbH) {
@@ -71,7 +72,7 @@ export class Renderer {
 
   draw(st) {
     const c = this.ctx, W = this.w, H = this.h;
-    const kbH = Math.round(Math.min(Math.max(H * 0.34, 90), 190));
+    const kbH = Math.round(Math.min(Math.max(H * 0.42, 96), 210));
     const kbTop = H - kbH;
     if (!this.layout || this.layout.lo !== st.lo || this.layout.hi !== st.hi || this.layout.width !== W) {
       this.layout = buildLayout(st.lo, st.hi, W);
@@ -114,7 +115,6 @@ export class Renderer {
       const y = yOf(b);
       if (y < -20 || y > kbTop) continue;
       c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
-      c.fillText(String(Math.round(b / bpb) + 1), 8, y - 4);
     }
 
     // תווים נופלים
@@ -123,8 +123,12 @@ export class Renderer {
       if (n.t > maxB) break;
       if (n.t + n.d < minB) continue;
       if (st.hands !== 'both' && n.hand !== st.hands) continue;
-      const k = L.keys.get(n.m);
-      if (!k) continue;
+      let k = L.keys.get(n.m), outside = 0;
+      if (!k) {                                  // תו מחוץ לטווח המוצג — נצמד לקצה עם חץ
+        outside = n.m < st.lo ? -1 : 1;
+        k = L.keys.get(outside < 0 ? L.firstWhite : L.lastWhite);
+        if (!k) continue;
+      }
       const y1 = yOf(n.t + n.d), y2 = yOf(n.t);
       const h = Math.max(6, y2 - y1);
       const col = COLORS[n.hand] || COLORS.R;
@@ -132,30 +136,62 @@ export class Renderer {
       const x = k.x + pad, w = k.w - pad * 2;
       const active = st.beat >= n.t && st.beat <= n.t + n.d;
       const imminent = n.t - st.beat < 0.25 && n.t + n.d > st.beat - 0.1;
+      const held = n.d >= 1.2;                   // תו ארוך = ליווי; לא אמור להשתלט על המסך
 
       c.save();
-      if (active || imminent) { c.shadowColor = col.glow; c.shadowBlur = 16; }
-      const g = c.createLinearGradient(x, y1, x, y1 + h);
-      g.addColorStop(0, col.edge);
-      g.addColorStop(0.18, col.fill);
-      g.addColorStop(1, k.black ? shade(col.fill, -0.28) : shade(col.fill, -0.12));
-      c.fillStyle = g;
+      c.globalAlpha = outside ? 0.4 : 1;
+      if ((active || imminent) && !held) { c.shadowColor = col.glow; c.shadowBlur = 16; }
       roundRect(c, x, y1, w, h, Math.min(6, w / 2));
-      c.fill();
+      if (held) {
+        c.fillStyle = active ? hexA(col.fill, 0.34) : hexA(col.fill, 0.17);
+        c.fill();
+        c.strokeStyle = hexA(col.fill, active ? 0.95 : 0.6);
+        c.lineWidth = 1.5;
+        c.stroke();
+      } else {
+        const g = c.createLinearGradient(x, y1, x, y1 + h);
+        g.addColorStop(0, col.edge);
+        g.addColorStop(0.18, col.fill);
+        g.addColorStop(1, k.black ? shade(col.fill, -0.28) : shade(col.fill, -0.12));
+        c.fillStyle = g;
+        c.fill();
+      }
+      if (outside) {
+        c.fillStyle = col.edge;
+        c.font = '700 12px system-ui, sans-serif';
+        c.textAlign = 'center';
+        c.fillText(outside < 0 ? '◀' : '▶', x + w / 2, Math.min(y1 + h - 4, kbTop - 4));
+      }
       c.restore();
 
-      if (h > 22 && w > 16 && st.labels !== 'none') {
+      const showName = !outside && !held && (st.labels === 'names' || st.labels === 'solfege');
+      if (showName && h > 22 && w > 16) {
         c.fillStyle = 'rgba(0,0,0,.72)';
         c.font = `600 ${Math.min(12, w * 0.55)}px system-ui, sans-serif`;
         c.textAlign = 'center';
         c.fillText(st.labels === 'solfege' ? solfegeName(n.m) : noteName(n.m), x + w / 2, y1 + h - 6);
       }
-      if (n.finger && h > 34 && w > 14) {
+      if (n.finger && !outside && h > 34 && w > 14) {
         c.fillStyle = 'rgba(0,0,0,.85)';
         c.font = '700 11px system-ui, sans-serif';
         c.textAlign = 'center';
         c.fillText(String(n.finger), x + w / 2, y1 + 13);
       }
+    }
+
+    // דהייה בראש המסלול — תווים נכנסים בהדרגה במקום להיחתך מאחורי הסרגל
+    const fade = c.createLinearGradient(0, 0, 0, 54);
+    fade.addColorStop(0, 'rgba(8,10,16,.95)');
+    fade.addColorStop(1, 'rgba(8,10,16,0)');
+    c.fillStyle = fade;
+    c.fillRect(0, 0, W, 54);
+
+    // מונה תיבות, צמוד לקו הפגיעה — שם העין ממילא
+    if (st.barText) {
+      c.font = '600 11px system-ui, sans-serif';
+      c.textAlign = 'left';
+      c.fillStyle = 'rgba(255,255,255,.42)';
+      c.fillText(st.barText, 8, kbTop - 14);
     }
 
     // קו הפגיעה
@@ -196,17 +232,15 @@ export class Renderer {
       c.stroke();
 
       const pc = ((k.m % 12) + 12) % 12;
-      if (st.labels !== 'none' || pc === 0) {
-        const showAll = st.labels !== 'none';
-        if (pc === 0 || showAll) {
-          c.fillStyle = pc === 0 ? '#8a3b00' : 'rgba(0,0,0,.5)';
-          c.font = `${pc === 0 ? '700 ' : ''}${Math.min(11, k.w * 0.46)}px system-ui, sans-serif`;
-          c.textAlign = 'center';
-          const label = pc === 0
-            ? (st.labels === 'solfege' ? 'דו' + octaveOf(k.m) : 'C' + octaveOf(k.m))
-            : (st.labels === 'solfege' ? solfegeName(k.m) : noteName(k.m));
-          c.fillText(label, k.x + k.w / 2, top + h - 7);
-        }
+      const showAll = st.labels === 'names' || st.labels === 'solfege';
+      if (pc === 0 || showAll) {
+        c.fillStyle = pc === 0 ? '#8a3b00' : 'rgba(0,0,0,.5)';
+        c.font = `${pc === 0 ? '700 ' : ''}${Math.min(11, k.w * 0.46)}px system-ui, sans-serif`;
+        c.textAlign = 'center';
+        const label = pc === 0
+          ? (st.labels === 'solfege' ? 'דו' + octaveOf(k.m) : 'C' + octaveOf(k.m))
+          : (st.labels === 'solfege' ? solfegeName(k.m) : noteName(k.m));
+        c.fillText(label, k.x + k.w / 2, top + h - 7);
       }
     }
 
@@ -233,6 +267,11 @@ function keyState(m, st) {
   if (st.waitSet && st.waitSet.has(m)) return { wait: true };
   const a = st.activeKeys.get(m);
   return a ? { active: true, hand: a } : {};
+}
+
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
 function shade(hex, amt) {

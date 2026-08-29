@@ -16,14 +16,15 @@ const player = new Player(synth);
 const renderer = new Renderer(canvas);
 
 const DEFAULTS = {
-  speed: 100, bpm: null, hands: 'both', mode: 'follow', labels: 'names',
-  ahead: 4, vol: 60, metro: false, countIn: true, sound: true,
+  speed: 100, bpm: null, hands: 'both', mode: 'follow', labels: 'c',
+  aheadSec: 3, vol: 60, metro: false, countIn: true, sound: true,
   inputSrc: 'touch', octForgive: false, songId: 'moonlight', range: null,
 };
 const cfg = Object.assign({}, DEFAULTS, store.loadSettings());
 const save = () => store.saveSettings(cfg);
 
 let imported = store.loadSongs().map(normalizeSong);
+let seenHint = false;
 let song = null;
 let range = { lo: 48, hi: 83 };
 const userKeys = new Map();          // midi -> timestamp
@@ -58,12 +59,18 @@ function renderList() {
   }
 }
 
-// טווח הקלידים המוצג: מה-C שמתחת לתו הנמוך ועד התו הגבוה (לפחות שתי אוקטבות)
+// טווח הקלידים המוצג. צמוד לתווים בפועל — כל אוקטבה מיותרת מכווצת את כל הקלידים.
+// אם היצירה פרושה על יותר מ-4 אוקטבות, חותכים לפי אחוזונים והחריגים נצמדים לקצה עם חץ.
 function autoRange(s) {
-  let lo = Math.floor(s.range[0] / 12) * 12;
-  let hi = s.range[1];
+  let lo = s.range[0], hi = s.range[1];
+  if (hi - lo > 48) {
+    const p = s.notes.map((n) => n.m).sort((a, b) => a - b);
+    lo = p[Math.floor(p.length * 0.02)];
+    hi = p[Math.ceil(p.length * 0.98) - 1];
+  }
+  if (isBlack(lo)) lo--;
   if (isBlack(hi)) hi++;
-  while (hi - lo < 24) { if (hi < 108) hi++; else if (lo > 21) lo -= 12; else break; }
+  while (hi - lo < 24) { if (hi < 108) hi++; else if (lo > 21) lo--; else break; }
   return { lo: Math.max(21, lo), hi: Math.min(108, hi) };
 }
 
@@ -92,21 +99,23 @@ function applyCfg() {
   player.sound = cfg.sound;
   player.forgiveOctave = cfg.octForgive || cfg.inputSrc === 'mic';
   synth.setVolume(cfg.vol / 100);
-  $('#btnHands').textContent = { both: '2 ידיים', R: 'יד ימין', L: 'יד שמאל' }[cfg.hands];
-  $('#btnHands').classList.toggle('act', cfg.hands !== 'both');
-  $('#btnMode').textContent = cfg.mode === 'wait' ? 'המתן לי' : 'עוקב';
-  $('#btnMode').classList.toggle('act', cfg.mode === 'wait');
-  $('#btnSpeed').textContent = cfg.speed + '%';
-  $('#btnSpeed').classList.toggle('act', cfg.speed !== 100);
-  $('#btnSound').textContent = cfg.sound ? '🔊' : '🔇';
+  chip('#btnHands', { both: '2 ידיים', R: 'יד ימין', L: 'יד שמאל' }[cfg.hands], cfg.hands !== 'both');
+  chip('#btnMode', cfg.mode === 'wait' ? 'המתן לי' : 'עוקב', cfg.mode === 'wait');
+  chip('#btnSpeed', cfg.speed + '%', cfg.speed !== 100);
+  $('#chkSound').checked = cfg.sound;
   $('#rngSpeed').value = cfg.speed; $('#outSpeed').textContent = cfg.speed + '%';
-  $('#rngAhead').value = cfg.ahead; $('#outAhead').textContent = cfg.ahead.toFixed(1) + ' ביטים';
+  $('#rngAhead').value = cfg.aheadSec; $('#outAhead').textContent = cfg.aheadSec.toFixed(1) + ' שניות';
   $('#rngVol').value = cfg.vol; $('#outVol').textContent = cfg.vol + '%';
   $('#chkMetro').checked = cfg.metro;
   $('#chkCount').checked = cfg.countIn;
   $('#chkOct').checked = cfg.octForgive;
   segSet('#segLabels', cfg.labels);
   segSet('#segInput', cfg.inputSrc);
+}
+function chip(sel, text, active) {
+  const el = $(sel);
+  el.firstChild.nodeValue = text;          // משאיר את חץ ה-▾ במקומו
+  el.classList.toggle('act', active);
 }
 const segSet = (sel, v) => document.querySelectorAll(sel + ' button')
   .forEach((b) => b.classList.toggle('on', b.dataset.v === v));
@@ -121,11 +130,20 @@ function frame() {
   if (song) for (const n of player.activeNotes()) active.set(n.m, n.hand);
   for (const m of userKeys.keys()) if (!active.has(m)) active.set(m, 'U');
 
+  // המרחק קדימה נמדד בשניות כדי שמהירות הגלילה תהיה זהה בכל טמפו
+  let aheadBeats = 4;
+  if (song) {
+    const b = Math.max(0, player.beat);
+    aheadBeats = Math.max(0.5, player.secToBeat(player.beatToSec(b) + cfg.aheadSec) - b);
+  }
+  const bpb = song ? song.beatsPerBar || 4 : 4;
+
   renderer.draw({
     lo: range.lo, hi: range.hi,
     beat: player.beat,
     notes: song ? song.notes : [],
-    lookaheadBeats: cfg.ahead,
+    lookaheadBeats: aheadBeats,
+    barText: song ? `תיבה ${Math.max(1, Math.floor(player.beat / bpb) + 1)} / ${Math.ceil(song.lengthBeats / bpb)}` : '',
     beatsPerBar: song ? song.beatsPerBar : 4,
     hands: cfg.hands,
     labels: cfg.labels,
@@ -135,12 +153,14 @@ function frame() {
   });
 
   updateHud();
+  syncChrome();
   requestAnimationFrame(frame);
 }
 
 function updateHud() {
   const hud = $('#hud');
   if (!song) { hud.textContent = 'פתח את התפריט ☰ ובחר יצירה'; return; }
+  hud.className = '';
   if (player.waiting) {
     const names = [...player.waitSet].sort((a, b) => a - b)
       .map((m) => (cfg.labels === 'solfege' ? solfegeName(m) + octaveOf(m) : fullName(m))).join(' + ');
@@ -148,12 +168,26 @@ function updateHud() {
   } else if (player.playing && player.beat < 0) {
     hud.textContent = 'ספירה… ' + (Math.floor(player.beat + (song.beatsPerBar || 4)) + 1);
   } else if (!player.playing) {
-    hud.innerHTML = '<span style="color:#ffb340">■</span> יד ימין &nbsp; <span style="color:#3fb9ff">■</span> יד שמאל &nbsp;·&nbsp; נגיעה במסך = נגן/עצור';
+    hud.className = 'legend';
+    hud.innerHTML = '<span style="color:#ffb340">■</span> ימין &nbsp; <span style="color:#3fb9ff">■</span> שמאל'
+      + (seenHint ? '' : ' &nbsp;·&nbsp; נגיעה במסך = נגן/עצור');
   } else hud.textContent = '';
 
   const p = Math.max(0, Math.min(1, player.beat / (song.lengthBeats || 1)));
   $('#seekfill').style.width = (p * 100) + '%';
   $('#btnPlay').textContent = player.playing ? '⏸' : '▶';
+}
+
+let lastKbH = -1;
+function syncChrome() {
+  document.body.classList.toggle('playing', player.playing);
+  const kbH = renderer.kbH || 0;
+  if (kbH !== lastKbH) {
+    lastKbH = kbH;
+    $('#seekbar').style.bottom = (kbH + 3) + 'px';
+    $('#hud').style.bottom = (kbH + 30) + 'px';
+    $('#toast').style.bottom = (kbH + 44) + 'px';
+  }
 }
 
 /* ---------- קלט מגע על הקלידים ---------- */
@@ -169,7 +203,11 @@ canvas.addEventListener('pointerdown', (e) => {
   if (m == null) {
     // נגיעה במסלול התווים = נגן/עצור (נוח כשהטלפון עומד על מעמד התווים)
     const y = e.clientY - canvas.getBoundingClientRect().top;
-    if (song && y > 52) { player.toggle(); if (player.playing) requestWakeLock(); }
+    if (song && y > 52) {
+      seenHint = true;
+      player.toggle();
+      if (player.playing) requestWakeLock();
+    }
     return;
   }
   e.preventDefault();
@@ -231,7 +269,7 @@ $('#btnSpeed').onclick = () => {
   cfg.speed = steps[(steps.indexOf(cfg.speed) + 1) % steps.length] || 50;
   save(); applyCfg();
 };
-$('#btnSound').onclick = () => { cfg.sound = !cfg.sound; save(); applyCfg(); };
+$('#chkSound').onchange = (e) => { cfg.sound = e.target.checked; save(); applyCfg(); };
 $('#btnFull').onclick = async () => {
   if (!document.documentElement.requestFullscreen) {
     toast(IS_IOS
@@ -247,7 +285,7 @@ $('#btnFull').onclick = async () => {
 };
 
 $('#rngSpeed').oninput = (e) => { cfg.speed = +e.target.value; save(); applyCfg(); };
-$('#rngAhead').oninput = (e) => { cfg.ahead = +e.target.value; save(); applyCfg(); };
+$('#rngAhead').oninput = (e) => { cfg.aheadSec = +e.target.value; save(); applyCfg(); };
 $('#rngVol').oninput = (e) => { cfg.vol = +e.target.value; save(); applyCfg(); };
 $('#rngBpm').oninput = (e) => {
   if (!song) return;
@@ -431,8 +469,12 @@ function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;
   t.classList.add('show');
+  document.body.classList.add('toasting');
   clearTimeout(toastT);
-  toastT = setTimeout(() => t.classList.remove('show'), 2200);
+  toastT = setTimeout(() => {
+    t.classList.remove('show');
+    document.body.classList.remove('toasting');
+  }, 2200);
 }
 let wakeLock = null;
 async function requestWakeLock() {
@@ -447,6 +489,8 @@ function checkOrientation() {
 }
 $('#btnIgnoreRotate').onclick = () => document.body.classList.add('ignore-rotate');
 addEventListener('resize', () => { renderer.resize(); checkOrientation(); });
+// שינוי גודל של הקנבס עצמו (סרגל הכתובת של ספארי, מעבר למסך מלא) לא מייצר resize של החלון
+if (window.ResizeObserver) new ResizeObserver(() => renderer.resize()).observe(canvas);
 addEventListener('orientationchange', () => setTimeout(() => { renderer.resize(); checkOrientation(); }, 250));
 
 /* אתחול */
