@@ -179,7 +179,7 @@ function frame() {
 
   const active = new Map();
   if (song) for (const n of player.activeNotes()) active.set(n.m, n.hand);
-  for (const m of userKeys.keys()) if (!active.has(m)) active.set(m, 'U');
+  for (const m of userKeys.keys()) active.set(m, 'U');   // ירוק = הטלפון קלט אותך
 
   // המרחק קדימה נמדד בשניות כדי שמהירות הגלילה תהיה זהה בכל טמפו
   let aheadBeats = 4;
@@ -224,6 +224,7 @@ function frame() {
   });
 
   updateHud();
+  updateMicMeter(now);
   syncChrome();
   requestAnimationFrame(frame);
 }
@@ -247,6 +248,17 @@ function updateHud() {
   const p = Math.max(0, Math.min(1, player.beat / (song.lengthBeats || 1)));
   $('#seekfill').style.width = (p * 100) + '%';
   $('#btnPlay').textContent = player.playing ? '⏸' : '▶';
+}
+
+let lastMic = 0;
+function updateMicMeter(now) {
+  if (now - lastMic < 90) return;
+  lastMic = now;
+  const box = $('#micMeter');
+  if (!micIn || !micIn.running) { if (!box.hidden) box.hidden = true; return; }
+  box.hidden = false;
+  $('#micLevel').style.width = Math.min(100, micIn.level * 900) + '%';
+  $('#micNote').textContent = micIn.detected == null ? '—' : fullName(micIn.detected);
 }
 
 let lastKbH = -1;
@@ -313,7 +325,7 @@ async function setInputSource(v) {
     }
   } catch (err) {
     hint.textContent = 'לא הצלחתי להפעיל: ' + err.message;
-    cfg.inputSrc = 'touch'; save(); segSet('#segInput', 'touch');
+    cfg.inputSrc = 'touch'; save(); applyCfg(); segSet('#segInput', 'touch');
   }
 }
 

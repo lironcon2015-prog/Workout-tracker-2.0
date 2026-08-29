@@ -5,6 +5,7 @@ const BLACK_OFF = { 1: -0.10, 3: 0.10, 6: -0.15, 8: 0, 10: 0.15 };
 const COLORS = {
   R: { fill: '#ffb340', edge: '#ffd79a', glow: 'rgba(255,179,64,.45)' },
   L: { fill: '#3fb9ff', edge: '#9fe0ff', glow: 'rgba(63,185,255,.45)' },
+  U: { fill: '#4ade80', edge: '#bbf7d0', glow: 'rgba(74,222,128,.5)' },   // מה שאתה ניגנת
 };
 
 export function buildLayout(lo, hi, width) {
