@@ -1,4 +1,4 @@
-const CACHE = 'piano-guide-v1';
+const CACHE = 'piano-guide-v2';
 const ASSETS = [
   './', './index.html', './css/app.css', './manifest.webmanifest', './icon.svg',
   './apple-touch-icon.png', './js/main.js', './js/player.js', './js/render.js', './js/audio.js',
