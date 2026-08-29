@@ -14,24 +14,28 @@
 </head>
 <body>
 <div id="app">
-  <div id="stagewrap"><canvas id="stage"></canvas></div>
-
-  <div id="seekbar"><div id="seekfill"></div><div id="seekloop"></div></div>
+  <div id="stagewrap">
+    <canvas id="stage"></canvas>
+    <div id="seekbar"><div id="seekfill"></div><div id="seekloop"></div></div>
+    <div id="hud"></div>
+    <div id="toast"></div>
+  </div>
 
   <header id="bar">
-    <button class="btn" id="btnMenu" title="ספריית יצירות">☰</button>
+    <button class="btn ghost" id="btnMenu" title="ספריית יצירות והגדרות">☰</button>
     <div id="title"><span id="titleMain">בחר יצירה</span><span id="titleSub"></span></div>
-    <button class="btn primary" id="btnPlay" title="נגן">▶</button>
-    <button class="btn" id="btnRestart" title="מהתחלה">⏮</button>
-    <button class="btn chip" id="btnHands">2 ידיים</button>
-    <button class="btn chip" id="btnMode">עוקב</button>
-    <button class="btn chip" id="btnSpeed">100%</button>
-    <button class="btn" id="btnSound" title="צליל">🔊</button>
-    <button class="btn" id="btnFull" title="מסך מלא">⛶</button>
+    <div id="chips">
+      <button class="chip" id="btnHands">2 ידיים<i>▾</i></button>
+      <button class="chip" id="btnMode">עוקב<i>▾</i></button>
+      <button class="chip" id="btnSpeed">100%<i>▾</i></button>
+    </div>
+    <div id="transport">
+      <button class="btn" id="btnRestart" title="מהתחלה">⏮</button>
+      <button class="btn play" id="btnPlay" title="נגן">▶</button>
+    </div>
   </header>
 
-  <div id="hud"></div>
-  <div id="toast"></div>
+
 
   <aside id="panel">
     <div class="panel-head">
@@ -98,10 +102,11 @@
         <input type="range" id="rngSpeed" min="25" max="150" step="5" value="100">
         <label class="row">טמפו (BPM) <output id="outBpm">—</output></label>
         <input type="range" id="rngBpm" min="30" max="200" step="1" value="100">
-        <label class="row">כמה קדימה לראות <output id="outAhead">4.0 ביטים</output></label>
-        <input type="range" id="rngAhead" min="2" max="12" step="0.5" value="4">
+        <label class="row">כמה קדימה לראות <output id="outAhead">3.0 שניות</output></label>
+        <input type="range" id="rngAhead" min="1.5" max="8" step="0.5" value="3">
         <label class="row">עוצמת צליל <output id="outVol">60%</output></label>
         <input type="range" id="rngVol" min="0" max="100" step="5" value="60">
+        <label class="check"><input type="checkbox" id="chkSound" checked> צליל פסנתר מהאפליקציה</label>
         <label class="check"><input type="checkbox" id="chkMetro"> מטרונום</label>
         <label class="check"><input type="checkbox" id="chkCount" checked> ספירה לתוך היצירה (תיבה אחת)</label>
       </section>
@@ -121,7 +126,8 @@
       <section>
         <h3>תצוגה</h3>
         <div class="seg" id="segLabels">
-          <button data-v="names" class="on">C D E</button>
+          <button data-v="c" class="on">רק דו (C)</button>
+          <button data-v="names">C D E</button>
           <button data-v="solfege">דו רה מי</button>
           <button data-v="none">בלי שמות</button>
         </div>
@@ -168,6 +174,7 @@
         <h3>גרסה ועדכונים</h3>
         <div class="verrow">גרסה מותקנת<span id="verNow">…</span></div>
         <button class="btn wide" id="btnUpdate">בדוק עדכון עכשיו</button>
+        <button class="btn wide" id="btnFull" style="margin-top:6px">מסך מלא</button>
         <p class="hint">האפליקציה מושכת את הגרסה העדכנית בכל פתיחה כשיש רשת, ונשמרת אופליין
           כגיבוי. אם משהו נראה תקוע — הכפתור הזה מאלץ בדיקה ורענון.</p>
       </section>

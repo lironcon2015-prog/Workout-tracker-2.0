@@ -6,7 +6,8 @@
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
   font-family:system-ui,-apple-system,"Segoe UI",Rubik,Arial,sans-serif;overscroll-behavior:none;touch-action:manipulation}
 /* אייפון: בלנדסקייפ המגרעת נמצאת בצד והפס התחתון מכסה את הקלידים */
-#app{position:fixed;inset:0}
+#app{position:fixed;inset:0;background:
+  radial-gradient(120% 100% at 50% 0%,#141a29 0%,#080a10 70%)}
 /* מרווח קטן מקצוות המסך; max() מכבד גם את ה-safe-area של האייפון.
    ההצהרה הראשונה היא נפילה לאחור לדפדפנים בלי env()/max(). */
 #stagewrap{position:absolute;border-radius:14px;overflow:hidden;
@@ -18,13 +19,19 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--
 #stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 
 /* סרגל עליון */
-#bar{position:absolute;height:46px;display:flex;align-items:center;gap:7px;
-  padding:0 10px;background:linear-gradient(180deg,rgba(8,10,16,.92),rgba(8,10,16,0));
-  border-radius:14px 14px 0 0;z-index:5;
+#bar{position:absolute;height:44px;display:flex;align-items:center;gap:10px;
+  padding:0 8px;z-index:5;
   top:6px;left:10px;right:10px;
   top:max(env(safe-area-inset-top),6px);
   left:max(env(safe-area-inset-left),10px);
   right:max(env(safe-area-inset-right),10px)}
+#chips{display:flex;gap:5px;flex:0 0 auto}
+#transport{display:flex;gap:6px;flex:0 0 auto}
+/* בזמן נגינה הכרומה נעלמת — הטלפון על מעמד התווים, לא צריך כפתורים.
+   ☰ נשאר דהוי ולחיץ כדי שתמיד תהיה דרך החוצה בלי לעצור. */
+#bar > *{transition:opacity .35s ease}
+body.playing #bar > *:not(#btnMenu){opacity:0;pointer-events:none}
+body.playing #btnMenu{opacity:.3}
 #title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.15;overflow:hidden}
 #titleMain{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   text-shadow:0 1px 6px #000,0 0 10px #000}
@@ -34,40 +41,45 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--
   color:var(--txt);font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;
   padding:0 9px;flex:0 0 auto}
 .btn:active{transform:scale(.94)}
+.btn.ghost{background:rgba(12,16,26,.72);border-color:rgba(255,255,255,.10);backdrop-filter:blur(6px)}
 .btn.primary{background:linear-gradient(180deg,#ffc65e,#ff9d1f);color:#241400;border-color:#ffca6a;font-weight:700}
-.btn.chip{font-size:11px;font-weight:600;background:#161c2b;color:var(--dim)}
-.btn.chip.act{color:#0b1220;background:var(--ok);border-color:var(--ok)}
+/* טרנספורט — היחיד שצבעוני, ובקצה */
+.btn.play{width:46px;height:38px;font-size:17px;border:0;
+  background:linear-gradient(180deg,#ffc65e,#ff9d1f);color:#241400;font-weight:700;
+  box-shadow:0 3px 14px rgba(255,157,31,.35)}
+/* צ'יפים — מצב, לא פעולה: שטוחים, בלי מסגרת, עם חץ שמסמן שהם מתחלפים */
+.chip{height:28px;padding:0 8px;border:0;border-radius:8px;background:rgba(255,255,255,.07);
+  color:var(--dim);font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:3px;
+  font-family:inherit}
+.chip i{font-style:normal;font-size:8px;opacity:.55}
+.chip.act{background:rgba(74,222,128,.16);color:var(--ok)}
+.chip:active{transform:scale(.94)}
 
 /* פס התקדמות */
-#seekbar{position:absolute;height:4px;background:#1a2132;z-index:6;direction:ltr;
-  border-radius:14px 14px 0 0;overflow:hidden;
-  top:6px;left:10px;right:10px;
-  top:max(env(safe-area-inset-top),6px);
-  left:max(env(safe-area-inset-left),10px);
-  right:max(env(safe-area-inset-right),10px)}
+#seekbar{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(255,255,255,.07);
+  z-index:6;direction:ltr;cursor:pointer}
 #seekfill{height:100%;width:0;background:linear-gradient(90deg,var(--l),var(--r))}
 #seekloop{position:absolute;top:0;height:100%;background:rgba(74,222,128,.45);display:none}
 
-#hud{position:absolute;text-align:center;font-size:12px;color:var(--dim);
-  pointer-events:none;z-index:4;text-shadow:0 1px 6px #000;
-  top:58px;left:10px;right:10px;
-  top:calc(max(env(safe-area-inset-top),6px) + 52px);
-  left:max(env(safe-area-inset-left),10px);
-  right:max(env(safe-area-inset-right),10px)}
+#hud{position:absolute;left:0;right:0;text-align:center;font-size:12px;color:var(--dim);
+  pointer-events:none;z-index:4;text-shadow:0 1px 6px #000,0 0 10px #000;transition:opacity .25s}
+#hud.legend{font-size:10.5px;opacity:.72}
+body.toasting #hud{opacity:0}
 #hud b{color:var(--warn)}
-#toast{position:absolute;bottom:calc(34% + 14px);right:50%;transform:translateX(50%);
+#toast{position:absolute;right:50%;transform:translateX(50%);
   background:#1a2132;border:1px solid var(--line);border-radius:10px;padding:7px 14px;font-size:12px;
   opacity:0;transition:opacity .25s;pointer-events:none;z-index:8;max-width:80%;text-align:center}
 #toast.show{opacity:1}
 
 /* פאנל */
-#panel{position:absolute;width:min(370px,92vw);background:var(--panel);
-  transform:translateX(110%);transition:transform .25s ease;z-index:20;display:flex;flex-direction:column;
-  border-left:1px solid var(--line);border-radius:14px 0 0 14px;
-  top:6px;bottom:8px;right:10px;
-  top:max(env(safe-area-inset-top),6px);
-  bottom:max(env(safe-area-inset-bottom),8px);
-  right:max(env(safe-area-inset-right),10px)}
+/* מעוגנת לקצה הפיזי; ה-safe-area הוא ריפוד פנימי, כך ש-translateX(101%)
+   מסתיר אותה לגמרי בכל מכשיר ובכל גודל inset. */
+#panel{position:absolute;top:0;bottom:0;right:0;width:min(360px,86vw);background:var(--panel);
+  transform:translateX(101%);transition:transform .25s ease;z-index:20;display:flex;flex-direction:column;
+  border-left:1px solid var(--line);
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+  padding-right:env(safe-area-inset-right)}
 #panel.open{transform:none}
 .panel-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;
   border-bottom:1px solid var(--line);font-size:15px}
