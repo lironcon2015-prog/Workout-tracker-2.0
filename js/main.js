@@ -18,7 +18,7 @@ const renderer = new Renderer(canvas);
 const DEFAULTS = {
   speed: 100, bpm: null, hands: 'both', mode: 'follow', labels: 'c',
   aheadSec: 3, vol: 60, metro: false, countIn: true, sound: true,
-  inputSrc: 'touch', octForgive: false, songId: 'moonlight', range: null,
+  inputSrc: 'touch', octForgive: false, songId: 'moonlight', range: null, follow: 'auto',
 };
 const cfg = Object.assign({}, DEFAULTS, store.loadSettings());
 const save = () => store.saveSettings(cfg);
@@ -27,6 +27,9 @@ let imported = store.loadSongs().map(normalizeSong);
 let seenHint = false;
 let song = null;
 let range = { lo: 48, hi: 83 };
+let winSemis = 36;              // גודל החלון ליצירה הנוכחית
+let shift = null;               // אנימציית הזזה {octaves, t0}
+let lastShiftAt = 0;
 const userKeys = new Map();          // midi -> timestamp
 let midiIn = null, micIn = null;
 
@@ -59,19 +62,61 @@ function renderList() {
   }
 }
 
-// טווח הקלידים המוצג. צמוד לתווים בפועל — כל אוקטבה מיותרת מכווצת את כל הקלידים.
-// אם היצירה פרושה על יותר מ-4 אוקטבות, חותכים לפי אחוזונים והחריגים נצמדים לקצה עם חץ.
-function autoRange(s) {
+/* ---------- חלון הקלידים המוצג ----------
+   הרעיון: גודל החלון נקבע פעם אחת ליצירה ולא משתנה — רוחב הקליד יציב.
+   מה שזז זה המיקום, ותמיד ב**אוקטבות שלמות**: תמונת המקלדת נשארת זהה
+   (אותן קבוצות של 2 ו-3 שחורים), רק תוויות ה-C מתחלפות. זו הזזה שהעין
+   כמעט לא מרגישה, בניגוד להזזה בכמות שרירותית של קלידים. */
+const MIN_SEMIS = 24, MAX_SEMIS = 60;      // 2 עד 5 אוקטבות
+const alignUp = (n) => Math.ceil(n / 12) * 12;
+const clampSemis = (n) => Math.max(MIN_SEMIS, Math.min(MAX_SEMIS, n));
+
+// חלון הפתיחה. אם כל היצירה נכנסת — חלון צמוד שלעולם לא זז (יציבות > צפיפות).
+// רק כשהיא רחבה מדי נכנס חלון בגודל קבוע שיזוז באוקטבות שלמות.
+function initialWindow(s) {
   let lo = s.range[0], hi = s.range[1];
-  if (hi - lo > 48) {
-    const p = s.notes.map((n) => n.m).sort((a, b) => a - b);
-    lo = p[Math.floor(p.length * 0.02)];
-    hi = p[Math.ceil(p.length * 0.98) - 1];
+  if (cfg.follow === 'all' || hi - lo <= MAX_SEMIS) {
+    if (isBlack(lo)) lo--;
+    if (isBlack(hi)) hi++;
+    while (hi - lo < MIN_SEMIS) { if (hi < 108) hi++; else if (lo > 21) lo--; else break; }
+    return { lo: Math.max(21, lo), hi: Math.min(108, hi) };
   }
-  if (isBlack(lo)) lo--;
-  if (isBlack(hi)) hi++;
-  while (hi - lo < 24) { if (hi < 108) hi++; else if (lo > 21) lo--; else break; }
-  return { lo: Math.max(21, lo), hi: Math.min(108, hi) };
+  const p = s.notes.map((n) => n.m).sort((a, b) => a - b);
+  const pl = p[Math.floor(p.length * 0.02)];
+  const ph = p[Math.ceil(p.length * 0.98) - 1];
+  const semis = clampSemis(alignUp(ph - pl + 2));
+  const start = Math.max(21, Math.min(pl - 1, 108 - semis));
+  return { lo: start, hi: start + semis };
+}
+
+// לאן החלון צריך לזוז כדי לכסות את מה שמגיע.
+// בוחרים את ההיסט (באוקטבות שלמות — כך תמונת המקלדת נשארת זהה) שמכסה הכי
+// הרבה תווים, ונשארים במקום כשההפרש זניח, כדי שלא ירדוף אחרי תו חריג בודד.
+function targetWindow(fromBeat, toBeat, curLo, semis) {
+  const ms = [];
+  for (const n of song.notes) {
+    if (n.t > toBeat) break;
+    if (n.t + n.d < fromBeat) continue;
+    if (cfg.hands !== 'both' && n.hand !== cfg.hands) continue;
+    ms.push(n.m);
+  }
+  if (!ms.length) return curLo;
+
+  const covers = (lo) => ms.reduce((c, m) => c + (m >= lo && m <= lo + semis ? 1 : 0), 0);
+  const here = covers(curLo);
+  if (here === ms.length) return curLo;
+
+  let best = curLo, bestScore = here;
+  for (let k = -4; k <= 4; k++) {
+    if (!k) continue;
+    const lo = Math.max(21, Math.min(curLo + k * 12, 108 - semis));
+    if (lo === curLo) continue;
+    const sc = covers(lo);
+    if (sc > bestScore + 1 || (sc === bestScore && Math.abs(k) < Math.abs((best - curLo) / 12))) {
+      best = lo; bestScore = sc;
+    }
+  }
+  return best;
 }
 
 function loadSong(s) {
@@ -79,7 +124,12 @@ function loadSong(s) {
   cfg.songId = s.id; save();
   player.load(s);
   applyCfg();
-  range = cfg.range && cfg.range.songId === s.id ? { lo: cfg.range.lo, hi: cfg.range.hi } : autoRange(s);
+  range = cfg.range && cfg.range.songId === s.id
+    ? { lo: cfg.range.lo, hi: cfg.range.hi }
+    : initialWindow(s);
+  winSemis = range.hi - range.lo;
+  shift = null; lastShiftAt = 0;
+  setFollowHint();
   $('#titleMain').textContent = s.title;
   $('#titleSub').textContent = [s.composer, s.note].filter(Boolean).join(' · ');
   $('#rngBpm').value = Math.round(s.bpm);
@@ -111,6 +161,7 @@ function applyCfg() {
   $('#chkOct').checked = cfg.octForgive;
   segSet('#segLabels', cfg.labels);
   segSet('#segInput', cfg.inputSrc);
+  segSet('#segFollow', cfg.follow);
 }
 function chip(sel, text, active) {
   const el = $(sel);
@@ -138,6 +189,24 @@ function frame() {
   }
   const bpb = song ? song.beatsPerBar || 4 : 4;
 
+  // מעקב: החלון זז לפני שהתווים מגיעים, ותמיד באוקטבות שלמות
+  if (song && cfg.follow !== 'fixed' && !shift && now - lastShiftAt > 900) {
+    const tgt = targetWindow(player.beat - 0.25, player.beat + aheadBeats + 0.75, range.lo, winSemis);
+    if (tgt !== range.lo) {
+      shift = { octaves: (tgt - range.lo) / 12, t0: now };
+      range = { lo: tgt, hi: tgt + winSemis };
+      lastShiftAt = now;
+    }
+  }
+  let shiftPx = 0;
+  if (shift) {
+    const t = Math.min(1, (now - shift.t0) / 260);
+    const wW = renderer.layout ? renderer.layout.whiteW : 0;
+    shiftPx = shift.octaves * 7 * wW * Math.pow(1 - t, 3);
+    if (t >= 1) shift = null;
+  }
+  const needsMap = song && song.range[1] - song.range[0] > winSemis;
+
   renderer.draw({
     lo: range.lo, hi: range.hi,
     beat: player.beat,
@@ -145,6 +214,8 @@ function frame() {
     lookaheadBeats: aheadBeats,
     barText: song ? `תיבה ${Math.max(1, Math.floor(player.beat / bpb) + 1)} / ${Math.ceil(song.lengthBeats / bpb)}` : '',
     beatsPerBar: song ? song.beatsPerBar : 4,
+    shiftPx,
+    map: needsMap ? { lo: song.range[0], hi: song.range[1] } : null,
     hands: cfg.hands,
     labels: cfg.labels,
     activeKeys: active,
@@ -302,17 +373,48 @@ document.querySelectorAll('#segLabels button').forEach((b) => b.onclick = () => 
   cfg.labels = b.dataset.v; save(); applyCfg();
 });
 document.querySelectorAll('#segInput button').forEach((b) => b.onclick = () => setInputSource(b.dataset.v));
+function resetWindow() {
+  if (!song) return;
+  cfg.range = null;
+  range = initialWindow(song);
+  winSemis = range.hi - range.lo;
+  shift = null;
+  save();
+  setFollowHint();
+}
+function setFollowHint() {
+  const el = $('#followHint');
+  if (!song) { el.textContent = ''; return; }
+  const oct = (winSemis / 12).toFixed(0);
+  const fits = song.range[1] - song.range[0] <= winSemis;
+  el.innerHTML = {
+    auto: `מוצגות ${oct} אוקטבות. ` + (fits
+      ? 'כל היצירה נכנסת בחלון הזה — הוא לא יזוז.'
+      : 'כשהיצירה עוברת לאזור אחר החלון יזוז <b>באוקטבה שלמה</b> — תמונת המקלדת נשארת זהה, רק תוויות ה-C מתחלפות. המפה הקטנה מעל הקלידים מראה איפה אתה.'),
+    fixed: `חלון קבוע של ${oct} אוקטבות. תווים מחוץ לחלון ייצמדו לקצה עם חץ — הזז ידנית עם ◀ ▶.`,
+    all: 'כל טווח היצירה על המסך בבת אחת. שום דבר לא זז, אבל הקלידים צרים.',
+  }[cfg.follow];
+}
+
+document.querySelectorAll('#segFollow button').forEach((b) => b.onclick = () => {
+  cfg.follow = b.dataset.v;
+  segSet('#segFollow', cfg.follow);
+  resetWindow();
+});
 document.querySelectorAll('#segRange button').forEach((b) => b.onclick = () => {
   if (!song) return;
   const v = b.dataset.v;
-  if (v === 'auto') { range = autoRange(song); cfg.range = null; }
-  else if (v === 'out') { range = { lo: Math.max(21, range.lo - 12), hi: Math.min(108, range.hi + 12) }; }
-  else if (v === 'in' && range.hi - range.lo > 24) { range = { lo: range.lo + 12, hi: range.hi - 12 }; }
-  else if (v === 'left' && range.lo > 21) { range = { lo: range.lo - 12, hi: range.hi - 12 }; }
-  else if (v === 'right' && range.hi < 108) { range = { lo: range.lo + 12, hi: range.hi + 12 }; }
-  if (v !== 'auto') cfg.range = { songId: song.id, ...range };
+  if (v === 'out' && range.hi - range.lo < 72) range = { lo: Math.max(21, range.lo - 12), hi: Math.min(108, range.hi + 12) };
+  else if (v === 'in' && range.hi - range.lo > 24) range = { lo: range.lo + 12, hi: range.hi - 12 };
+  else if (v === 'left' && range.lo > 21) range = { lo: range.lo - 12, hi: range.hi - 12 };
+  else if (v === 'right' && range.hi < 108) range = { lo: range.lo + 12, hi: range.hi + 12 };
+  else return;
+  winSemis = range.hi - range.lo;
+  cfg.follow = 'fixed';
+  cfg.range = { songId: song.id, ...range };
+  segSet('#segFollow', 'fixed');
+  setFollowHint();
   save();
-  segSet('#segRange', v === 'auto' ? 'auto' : '');
 });
 document.querySelectorAll('#segLoop button').forEach((b) => b.onclick = () => {
   if (!song) return;

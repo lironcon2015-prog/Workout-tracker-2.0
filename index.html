@@ -132,12 +132,17 @@
           <button data-v="none">בלי שמות</button>
         </div>
         <label class="row">טווח הקלידים</label>
-        <div class="seg" id="segRange">
+        <div class="seg" id="segFollow">
+          <button data-v="auto" class="on">עוקב אוטומטית</button>
+          <button data-v="fixed">קבוע</button>
+          <button data-v="all">כל היצירה</button>
+        </div>
+        <p class="hint" id="followHint"></p>
+        <div class="seg" id="segRange" style="margin-top:8px">
           <button data-v="out">− הרחב</button>
-          <button data-v="left">◀</button>
-          <button data-v="right">▶</button>
+          <button data-v="left">◀ אוקטבה</button>
+          <button data-v="right">אוקטבה ▶</button>
           <button data-v="in">+ הצר</button>
-          <button data-v="auto" class="on">אוטומטי</button>
         </div>
       </section>
 
