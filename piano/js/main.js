@@ -232,8 +232,14 @@ $('#btnSpeed').onclick = () => {
 };
 $('#btnSound').onclick = () => { cfg.sound = !cfg.sound; save(); applyCfg(); };
 $('#btnFull').onclick = async () => {
+  if (!document.documentElement.requestFullscreen) {
+    toast(IS_IOS
+      ? 'באייפון אין מסך מלא בדפדפן — שיתוף ← "הוספה למסך הבית" ואז לפתוח משם'
+      : 'הדפדפן לא תומך במסך מלא');
+    return;
+  }
   try {
-    if (!document.fullscreenElement) { await document.documentElement.requestFullscreen(); }
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
     else await document.exitFullscreen();
     if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
   } catch {}
@@ -347,6 +353,77 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Home') player.seek(0);
 });
 
+/* ---------- התאמות iOS ובדיקת תאימות ---------- */
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.platform) ||
+  (navigator.userAgent.includes('Mac') && 'ontouchend' in document) ||
+  /iPhone|iPad|iPod/.test(navigator.userAgent);
+const STANDALONE = window.navigator.standalone === true ||
+  matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+
+// בבורר הקבצים של iOS סינון לפי סיומת מאפיר קבצי MIDI — עדיף בלי סינון
+if (IS_IOS) $('#fileMidi').removeAttribute('accept');
+
+// ספארי מתעלם מ-user-scalable=no; חוסמים צביטה כדי שהמקלדת לא תזוז מתחת לאצבע
+['gesturestart', 'gesturechange', 'gestureend'].forEach((t) =>
+  document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+
+function renderDiagnostics() {
+  const rows = [
+    ['קלט מפסנתר MIDI', !!navigator.requestMIDIAccess,
+      'ספארי/iOS לא תומך ב-Web MIDI. השתמש במיקרופון או במגע.'],
+    ['מיקרופון (זיהוי צליל)', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      'דורש חיבור מאובטח (https) ולחיצה על כפתור.'],
+    ['מסך דלוק בזמן נגינה', 'wakeLock' in navigator,
+      'אין תמיכה — כבה נעילה אוטומטית בהגדרות המכשיר.'],
+    ['מסך מלא', !!document.documentElement.requestFullscreen,
+      IS_IOS ? 'באייפון אין מסך מלא בדפדפן — "הוסף למסך הבית" נותן את אותו דבר.' : ''],
+    ['נעילת כיוון לרוחב', !!(screen.orientation && screen.orientation.lock),
+      'סובב ידנית וּודא שנעילת הסיבוב במכשיר כבויה.'],
+    ['פתיחת קובץ <span dir="ltr">.mxl</span> דחוס', typeof DecompressionStream !== 'undefined',
+      'ייצא מ-MuseScore כקובץ <span dir="ltr">.musicxml</span> לא דחוס.'],
+    ['עבודה אופליין', 'serviceWorker' in navigator, ''],
+    ['שמירת יצירות', (() => { try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return true; } catch { return false; } })(),
+      'גלישה פרטית חוסמת שמירה.'],
+  ];
+  $('#diag').innerHTML = rows.map(([name, ok, why]) =>
+    `<div><span>${name}</span><span class="${ok ? 'ok' : 'no'}">${ok ? '✓ נתמך' : '✕ לא נתמך'}</span></div>` +
+    (!ok && why ? `<div style="background:none;padding:0 8px;color:var(--dim);font-size:11px">${why}</div>` : '')
+  ).join('');
+  $('#diagHint').innerHTML = IS_IOS && !STANDALONE
+    ? 'זיהיתי אייפון/אייפד. מומלץ: שיתוף ← <b>הוספה למסך הבית</b> — זה מסתיר את סרגלי ספארי, שומר את היצירות לאורך זמן ונותן מסך מלא לרוחב.'
+    : STANDALONE ? 'רץ כאפליקציה מותקנת ✓' : '';
+}
+
+/* גיבוי הספרייה */
+$('#btnExport').onclick = () => {
+  if (!imported.length) return toast('אין יצירות מיובאות לייצא');
+  const blob = new Blob([JSON.stringify(imported)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'piano-library.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+$('#fileLib').onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const list = JSON.parse(await f.text());
+    if (!Array.isArray(list)) throw new Error('מבנה לא מוכר');
+    const have = new Set(imported.map((x) => x.id));
+    let added = 0;
+    for (const raw of list) {
+      const s2 = normalizeSong(raw);
+      if (have.has(s2.id)) continue;
+      imported.push(s2); added++;
+    }
+    store.saveSongs(imported);
+    renderList();
+    toast(`נוספו ${added} יצירות`);
+  } catch (err) { toast('ייבוא נכשל: ' + err.message); }
+  e.target.value = '';
+};
+
 /* עזר */
 let toastT;
 function toast(msg) {
@@ -374,6 +451,7 @@ addEventListener('orientationchange', () => setTimeout(() => { renderer.resize()
 /* אתחול */
 renderList();
 applyCfg();
+renderDiagnostics();
 checkOrientation();
 loadSong(allSongs().find((s) => s.id === cfg.songId) || LIBRARY[0]);
 requestAnimationFrame(frame);

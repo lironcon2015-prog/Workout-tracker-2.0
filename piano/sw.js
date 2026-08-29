@@ -1,7 +1,7 @@
 const CACHE = 'piano-guide-v1';
 const ASSETS = [
   './', './index.html', './css/app.css', './manifest.webmanifest', './icon.svg',
-  './js/main.js', './js/player.js', './js/render.js', './js/audio.js',
+  './apple-touch-icon.png', './js/main.js', './js/player.js', './js/render.js', './js/audio.js',
   './js/notation.js', './js/songs.js', './js/midi.js', './js/musicxml.js', './js/input.js', './js/store.js',
 ];
 self.addEventListener('install', (e) => {

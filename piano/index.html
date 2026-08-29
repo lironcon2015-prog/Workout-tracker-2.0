@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>מדריך פסנתר</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -46,11 +47,11 @@
       <section>
         <h3>ייבוא תווים</h3>
         <label class="filebtn">
-          בחר קובץ ‎MIDI‎ או ‎MusicXML‎
+          בחר קובץ MIDI או MusicXML
           <input type="file" id="fileMidi" accept=".mid,.midi,.musicxml,.xml,.mxl,audio/midi" hidden>
         </label>
         <p class="hint">
-          נתמכים: <b>.mid / .midi</b> ו-<b>.musicxml / .mxl / .xml</b>.
+          נתמכים: <b dir="ltr">.mid</b> · <b dir="ltr">.midi</b> · <b dir="ltr">.musicxml</b> · <b dir="ltr">.mxl</b> · <b dir="ltr">.xml</b>.
           כמעט לכל יצירה מוכרת יש קובץ כזה בחינם (MuseScore.com, piano-midi.de, IMSLP, Mutopia).
           מורידים לטלפון, מייבאים כאן — והקלידים נדלקים לבד. בקובץ עם שתי מערכות תווים
           היד הימנית והשמאלית מזוהות אוטומטית.
@@ -127,6 +128,25 @@
           <button data-v="clear">בטל</button>
         </div>
         <p class="hint" id="loopHint">אין לולאה.</p>
+      </section>
+
+      <section>
+        <h3>הספרייה שלי</h3>
+        <div class="seg">
+          <button id="btnExport">ייצוא לקובץ</button>
+          <label class="filebtn" style="flex:1;padding:8px 6px;font-size:12px;border-style:solid;border-color:var(--line)">
+            ייבוא מקובץ
+            <input type="file" id="fileLib" accept=".json,application/json" hidden>
+          </label>
+        </div>
+        <p class="hint">גיבוי של היצירות שייבאת. שימושי במיוחד בספארי — iOS מוחק אחסון של אתרים
+          שלא נכנסת אליהם שבוע. (הוספה למסך הבית פותרת את זה ברוב המקרים.)</p>
+      </section>
+
+      <section>
+        <h3>תאימות המכשיר הזה</h3>
+        <div class="diag" id="diag"></div>
+        <p class="hint" id="diagHint"></p>
       </section>
 
       <section>
