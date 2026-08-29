@@ -168,7 +168,8 @@ canvas.addEventListener('pointerdown', (e) => {
   const m = pointToKey(e);
   if (m == null) {
     // נגיעה במסלול התווים = נגן/עצור (נוח כשהטלפון עומד על מעמד התווים)
-    if (song && e.clientY > 60) { player.toggle(); if (player.playing) requestWakeLock(); }
+    const y = e.clientY - canvas.getBoundingClientRect().top;
+    if (song && y > 52) { player.toggle(); if (player.playing) requestWakeLock(); }
     return;
   }
   e.preventDefault();
@@ -456,7 +457,55 @@ checkOrientation();
 loadSong(allSongs().find((s) => s.id === cfg.songId) || LIBRARY[0]);
 requestAnimationFrame(frame);
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+/* ---------- עדכוני גרסה ---------- */
+let swReg = null, reloading = false;
+function setVersionLabel(v) { $('#verNow').textContent = v || 'לא מותקן (רץ ישירות מהרשת)'; }
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'version') setVersionLabel(e.data.version);
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    swReg = reg;
+    askVersion();
+    // בדיקת עדכון בכל פתיחה וכל חזרה לאפליקציה
+    reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(() => setVersionLabel(null));
+} else {
+  setVersionLabel(null);
+}
+function askVersion() {
+  const c = navigator.serviceWorker && navigator.serviceWorker.controller;
+  if (c) c.postMessage('version');
+  else setVersionLabel(null);
+}
+navigator.serviceWorker && navigator.serviceWorker.ready.then(askVersion).catch(() => {});
+
+$('#btnUpdate').onclick = async () => {
+  if (!swReg) { location.reload(); return; }
+  toast('בודק עדכון…');
+  try {
+    await swReg.update();
+    const w = swReg.waiting || swReg.installing;
+    if (w) {
+      toast('נמצאה גרסה חדשה — מתקין');
+      w.postMessage('skipWaiting');       // controllerchange יגרום לרענון
+      setTimeout(() => { if (!reloading) location.reload(); }, 1500);
+    } else {
+      toast('אתה על הגרסה האחרונה');
+    }
+  } catch {
+    toast('אין חיבור לרשת — נשארים על הגרסה המותקנת');
+  }
+};
 
 // נקודת גישה לניפוי שגיאות מהקונסולה
 window.__piano = { player, renderer, synth, cfg, get song() { return song; }, get range() { return range; } };
