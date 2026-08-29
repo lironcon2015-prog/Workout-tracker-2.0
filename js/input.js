@@ -60,6 +60,9 @@ export class MicInput {
   }
   loop() {
     if (!this.running) return;
+    const now = performance.now();
+    if (now - (this._last || 0) < 45) return requestAnimationFrame(() => this.loop());
+    this._last = now;
     this.an.getFloatTimeDomainData(this.buf);
     const rms = Math.sqrt(this.buf.reduce((s, v) => s + v * v, 0) / this.buf.length);
     this.level = rms;
@@ -82,25 +85,51 @@ export class MicInput {
   }
 }
 
-function autocorrelate(buf, sr) {
+export function autocorrelate(buf, sr) {
   const n = buf.length;
-  let best = -1, bestCorr = 0;
-  const minLag = Math.floor(sr / 1300);   // ~1300Hz
-  const maxLag = Math.floor(sr / 55);     // ~55Hz
   let rms = 0;
   for (let i = 0; i < n; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / n);
   if (rms < 0.008) return -1;
 
-  let lastCorr = 1;
-  for (let lag = minLag; lag < maxLag; lag++) {
-    let corr = 0;
-    for (let i = 0; i < n - lag; i += 2) corr += buf[i] * buf[i + lag];
-    corr = corr / ((n - lag) / 2);
-    if (corr > bestCorr) { bestCorr = corr; best = lag; }
-    if (corr < lastCorr * 0.5 && bestCorr > 0 && lag > best * 1.6) break;
-    lastCorr = corr;
+  const minLag = Math.max(2, Math.floor(sr / 2200));            // עד ~C7
+  const maxLag = Math.min(Math.floor(sr / 50), n - 8);          // ~G1 ומטה
+  const W = Math.min(1024, n - maxLag);                         // חלון קבוע — עלות חישוב יציבה
+  if (W < 256 || maxLag <= minLag) return -1;
+
+  // אוטוקורלציה מנורמלת. הנרמול הוא מה שמונע הטיה לכיוון לג קצר,
+  // שגרמה לתווים נמוכים להיקרא כהרמוניה גבוהה.
+  const r = new Float32Array(maxLag + 2);
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let sum = 0, e1 = 0, e2 = 0;
+    for (let i = 0; i < W; i += 2) {
+      const a = buf[i], b = buf[i + lag];
+      sum += a * b; e1 += a * a; e2 += b * b;
+    }
+    r[lag] = sum / (Math.sqrt(e1 * e2) + 1e-12);
   }
-  if (best < 0 || bestCorr < rms * rms * 0.35) return -1;
-  return sr / best;
+
+  // אוספים את כל השיאים המקומיים, ובוחרים את **הראשון** שקרוב לשיא הגבוה ביותר.
+  // זה הכלל של McLeod: השיא הגבוה ביותר עלול לשבת על כפולה של המחזור (אוקטבה
+  // נמוכה מדי), והשיא הכי גבוה בלג קצר עלול להיות הרמוניה (אוקטבה גבוהה מדי).
+  // הראשון שמגיע קרוב למקסימום הוא המחזור היסודי.
+  const peaks = [];
+  let maxVal = 0;
+  for (let lag = minLag + 1; lag < maxLag; lag++) {
+    if (r[lag] > r[lag - 1] && r[lag] >= r[lag + 1]) {
+      peaks.push(lag);
+      if (r[lag] > maxVal) maxVal = r[lag];
+    }
+  }
+  if (!peaks.length || maxVal < 0.45) return -1;
+  let bestLag = peaks[peaks.length - 1];
+  for (const lag of peaks) {
+    if (r[lag] >= maxVal * 0.9) { bestLag = lag; break; }
+  }
+
+  // אינטרפולציה פרבולית סביב השיא — דיוק תת-דגימה
+  const y1 = r[bestLag - 1], y2 = r[bestLag], y3 = r[bestLag + 1];
+  const d = 2 * (2 * y2 - y1 - y3);
+  const shift = d ? (y3 - y1) / d : 0;
+  return sr / (bestLag + Math.max(-1, Math.min(1, shift)));
 }
