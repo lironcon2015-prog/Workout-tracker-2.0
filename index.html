@@ -14,7 +14,7 @@
 </head>
 <body>
 <div id="app">
-  <canvas id="stage"></canvas>
+  <div id="stagewrap"><canvas id="stage"></canvas></div>
 
   <div id="seekbar"><div id="seekfill"></div><div id="seekloop"></div></div>
 
@@ -162,6 +162,14 @@
         <h3>תאימות המכשיר הזה</h3>
         <div class="diag" id="diag"></div>
         <p class="hint" id="diagHint"></p>
+      </section>
+
+      <section>
+        <h3>גרסה ועדכונים</h3>
+        <div class="verrow">גרסה מותקנת<span id="verNow">…</span></div>
+        <button class="btn wide" id="btnUpdate">בדוק עדכון עכשיו</button>
+        <p class="hint">האפליקציה מושכת את הגרסה העדכנית בכל פתיחה כשיש רשת, ונשמרת אופליין
+          כגיבוי. אם משהו נראה תקוע — הכפתור הזה מאלץ בדיקה ורענון.</p>
       </section>
 
       <section>

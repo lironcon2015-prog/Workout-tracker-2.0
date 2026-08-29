@@ -114,7 +114,7 @@ export class Renderer {
       const y = yOf(b);
       if (y < -20 || y > kbTop) continue;
       c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
-      c.fillText(String(Math.round(b / bpb) + 1), 4, y - 4);
+      c.fillText(String(Math.round(b / bpb) + 1), 8, y - 4);
     }
 
     // תווים נופלים
