@@ -99,3 +99,10 @@ textarea.txt{resize:vertical;line-height:1.6;direction:ltr;text-align:left}
 .diag{display:flex;flex-direction:column;gap:5px;font-size:12px}
 .diag div{display:flex;justify-content:space-between;gap:10px;padding:5px 8px;border-radius:7px;background:#161c2b}
 .diag .ok{color:var(--ok)} .diag .no{color:var(--warn)} .diag .meh{color:#ffc65e}
+
+.links{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.links a{display:block;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#161c2b;
+  color:var(--txt);text-decoration:none;font-size:13px;font-weight:600}
+.links a:active{background:#20283c}
+.links a span{display:block;margin-top:3px;font-size:11px;font-weight:400;color:var(--dim)}
+.links a::after{content:'↗';float:left;color:var(--dim);font-weight:400}
