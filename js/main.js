@@ -18,7 +18,7 @@ const renderer = new Renderer(canvas);
 const DEFAULTS = {
   speed: 100, bpm: null, hands: 'both', mode: 'follow', labels: 'names',
   ahead: 4, vol: 60, metro: false, countIn: true, sound: true,
-  inputSrc: 'touch', octForgive: false, songId: 'twinkle', range: null,
+  inputSrc: 'touch', octForgive: false, songId: 'moonlight', range: null,
 };
 const cfg = Object.assign({}, DEFAULTS, store.loadSettings());
 const save = () => store.saveSettings(cfg);
