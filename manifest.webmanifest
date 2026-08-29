@@ -1,0 +1,15 @@
+{
+  "name": "מדריך פסנתר",
+  "short_name": "פסנתר",
+  "description": "מראה על מקלדת פסנתר אילו קלידים לנגן, מתוך יצירות מוכרות או קבצי MIDI",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#080a10",
+  "theme_color": "#080a10",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
